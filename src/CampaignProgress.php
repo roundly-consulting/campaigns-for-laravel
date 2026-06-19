@@ -25,4 +25,43 @@ final class CampaignProgress
 
         return 0.0;
     }
+
+    /**
+     * Whether the campaign reached a terminal state.
+     */
+    public function isComplete(): bool
+    {
+        return $this->status->isTerminal();
+    }
+
+    /**
+     * Whether the campaign is actively sending.
+     */
+    public function isRunning(): bool
+    {
+        return $this->status === CampaignStatus::Processing;
+    }
+
+    /**
+     * Recipients left to process.
+     */
+    public function remaining(): int
+    {
+        return max($this->total - $this->sent, 0);
+    }
+
+    /**
+     * @return array{status: string, sent: int, pending: int, total: int, remaining: int, percentage: float}
+     */
+    public function toArray(): array
+    {
+        return [
+            'status' => $this->status->value,
+            'sent' => $this->sent,
+            'pending' => $this->pending,
+            'total' => $this->total,
+            'remaining' => $this->remaining(),
+            'percentage' => $this->percentage(),
+        ];
+    }
 }

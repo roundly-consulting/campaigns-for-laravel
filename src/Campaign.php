@@ -19,4 +19,22 @@ final class Campaign
         public ?Carbon $endedAt = null,
         public ?string $batch = null,
     ) {}
+
+    /**
+     * @return array{uuid: string, subject: string, content: string, fromName: string, fromAddress: string, progress: array{status: string, sent: int, pending: int, total: int, remaining: int, percentage: float}, startedAt: string|null, endedAt: string|null, batch: string|null}
+     */
+    public function toArray(): array
+    {
+        return [
+            'uuid' => $this->uuid,
+            'subject' => $this->subject,
+            'content' => $this->content,
+            'fromName' => $this->fromName,
+            'fromAddress' => $this->fromAddress,
+            'progress' => $this->progress->toArray(),
+            'startedAt' => $this->startedAt?->toIso8601String(),
+            'endedAt' => $this->endedAt?->toIso8601String(),
+            'batch' => $this->batch,
+        ];
+    }
 }

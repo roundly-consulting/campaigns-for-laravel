@@ -12,6 +12,21 @@ final class CampaignRecipient
         public string $reachableAt,
         public bool $hasBeenProcessed = false,
         public bool $errorOccured = false,
-        public ?string $errorMessage = '',
+        public ?string $errorMessage = null,
     ) {}
+
+    /**
+     * @return array{uuid: string, name: string, reachableAt: string, hasBeenProcessed: bool, errorOccured: bool, errorMessage: string|null}
+     */
+    public function toArray(): array
+    {
+        return [
+            'uuid' => $this->uuid,
+            'name' => $this->name,
+            'reachableAt' => $this->reachableAt,
+            'hasBeenProcessed' => $this->hasBeenProcessed,
+            'errorOccured' => $this->errorOccured,
+            'errorMessage' => $this->errorMessage,
+        ];
+    }
 }
