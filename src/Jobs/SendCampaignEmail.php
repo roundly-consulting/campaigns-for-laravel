@@ -14,10 +14,11 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Mail;
 use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
+use RoundlyConsulting\Campaigns\Contracts\ProcessesCampaignRecipient;
 use RoundlyConsulting\Campaigns\Managers\Manager;
 use Throwable;
 
-final class SendCampaignEmail implements ShouldQueue
+final class SendCampaignEmail implements ProcessesCampaignRecipient, ShouldQueue
 {
     use Batchable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
