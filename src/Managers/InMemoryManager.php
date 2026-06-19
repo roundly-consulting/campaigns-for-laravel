@@ -7,14 +7,21 @@ namespace RoundlyConsulting\Campaigns\Managers;
 use Closure;
 use Illuminate\Bus\Batch;
 use Illuminate\Bus\BatchRepository;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
 use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
+use RoundlyConsulting\Campaigns\Events\RecipientFailed;
+use RoundlyConsulting\Campaigns\Events\RecipientProcessed;
+use RoundlyConsulting\Campaigns\Exceptions\CampaignNotFound;
 use RoundlyConsulting\Campaigns\Jobs\SendCampaignEmail;
+use RoundlyConsulting\Campaigns\Support\DispatchesCampaignEvents;
 
 final class InMemoryManager implements Manager
 {
+    use DispatchesCampaignEvents;
+
     /** @var array<string, Campaign> */
     public static array $campaigns = [];
 
@@ -37,6 +44,11 @@ final class InMemoryManager implements Manager
     public function find(string $campaignUuid): ?Campaign
     {
         return self::$campaigns[$campaignUuid] ?? null;
+    }
+
+    public function findOrFail(string $campaignUuid): Campaign
+    {
+        return $this->find($campaignUuid) ?? throw CampaignNotFound::withUuid($campaignUuid);
     }
 
     public function onEachCampaign(Closure $callback, int $offset = 0, int $limit = 10): void
@@ -70,11 +82,7 @@ final class InMemoryManager implements Manager
 
     public function start(string $campaignUuid): void
     {
-        $campaign = $this->find($campaignUuid);
-
-        if (! $campaign instanceof Campaign) {
-            return;
-        }
+        $campaign = $this->findOrFail($campaignUuid);
 
         $this->changeCampaignStatus($campaign, CampaignStatus::Processing);
 
@@ -103,11 +111,7 @@ final class InMemoryManager implements Manager
 
     public function cancel(string $campaignUuid): void
     {
-        $campaign = $this->find($campaignUuid);
-
-        if (! $campaign instanceof Campaign) {
-            return;
-        }
+        $campaign = $this->findOrFail($campaignUuid);
 
         $this->findBatchForCampaign($campaign)?->cancel();
 
@@ -119,6 +123,8 @@ final class InMemoryManager implements Manager
         $recipient->hasBeenProcessed = true;
 
         self::$recipients[$campaign->uuid][$recipient->uuid] = $recipient;
+
+        event(new RecipientProcessed($campaign, $recipient));
     }
 
     public function markRecipientAsFailed(Campaign $campaign, CampaignRecipient $recipient, string $error): void
@@ -128,6 +134,8 @@ final class InMemoryManager implements Manager
         $recipient->errorMessage = $error;
 
         self::$recipients[$campaign->uuid][$recipient->uuid] = $recipient;
+
+        event(new RecipientFailed($campaign, $recipient, $error));
     }
 
     public function findRecipient(string $campaignUuid, string $recipientUuid): ?CampaignRecipient
@@ -152,7 +160,17 @@ final class InMemoryManager implements Manager
         if ($campaign->progress->status !== $status) {
             $campaign->progress->status = $status;
 
+            if ($status === CampaignStatus::Processing && $campaign->startedAt === null) {
+                $campaign->startedAt = Carbon::now();
+            }
+
+            if ($status->isTerminal() && $campaign->endedAt === null) {
+                $campaign->endedAt = Carbon::now();
+            }
+
             $this->campaignModified($campaign);
+
+            $this->dispatchStatusEvent($campaign, $status);
         }
     }
 

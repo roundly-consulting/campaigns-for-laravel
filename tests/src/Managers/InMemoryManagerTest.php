@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
+use RoundlyConsulting\Campaigns\Exceptions\CampaignNotFound;
 use RoundlyConsulting\Campaigns\Managers\InMemoryManager;
 use RoundlyConsulting\Campaigns\Managers\Manager;
 
@@ -31,16 +32,19 @@ it('returns null batch for a campaign without a batch id', function (): void {
     expect($this->manager->findBatchForCampaign($campaign))->toBeNull();
 });
 
-it('does nothing when starting a missing campaign', function (): void {
-    $this->manager->start('missing-uuid');
-
-    expect($this->manager->find('missing-uuid'))->toBeNull();
+it('throws when starting a missing campaign', function (): void {
+    expect(fn () => $this->manager->start('missing-uuid'))
+        ->toThrow(CampaignNotFound::class);
 });
 
-it('does nothing when cancelling a missing campaign', function (): void {
-    $this->manager->cancel('missing-uuid');
+it('throws when cancelling a missing campaign', function (): void {
+    expect(fn () => $this->manager->cancel('missing-uuid'))
+        ->toThrow(CampaignNotFound::class);
+});
 
-    expect($this->manager->find('missing-uuid'))->toBeNull();
+it('throws when finding a missing campaign with findOrFail', function (): void {
+    expect(fn () => $this->manager->findOrFail('missing-uuid'))
+        ->toThrow(CampaignNotFound::class);
 });
 
 it('keeps progress untouched for a campaign without a batch', function (): void {

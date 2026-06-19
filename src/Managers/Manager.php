@@ -8,10 +8,16 @@ use Closure;
 use Illuminate\Bus\Batch;
 use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
+use RoundlyConsulting\Campaigns\Exceptions\CampaignNotFound;
 
 interface Manager
 {
     public function find(string $campaignUuid): ?Campaign;
+
+    /**
+     * @throws CampaignNotFound
+     */
+    public function findOrFail(string $campaignUuid): Campaign;
 
     public function findRecipient(string $campaignUuid, string $recipientUuid): ?CampaignRecipient;
 
