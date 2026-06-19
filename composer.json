@@ -33,7 +33,8 @@
     },
     "autoload": {
         "psr-4": {
-            "RoundlyConsulting\\Campaigns\\": "src"
+            "RoundlyConsulting\\Campaigns\\": "src",
+            "RoundlyConsulting\\Campaigns\\Database\\Factories\\": "database/factories"
         }
     },
     "autoload-dev": {
@@ -59,7 +60,10 @@
         "laravel": {
             "providers": [
                 "RoundlyConsulting\\Campaigns\\CampaignsServiceProvider"
-            ]
+            ],
+            "aliases": {
+                "Campaigns": "RoundlyConsulting\\Campaigns\\Facades\\Campaigns"
+            }
         }
     },
     "minimum-stability": "dev",
