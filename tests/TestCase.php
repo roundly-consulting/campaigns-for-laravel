@@ -8,20 +8,28 @@ use Orchestra\Testbench\TestCase as Orchestra;
 use RoundlyConsulting\Campaigns\CampaignsServiceProvider;
 use RoundlyConsulting\Campaigns\Managers\InMemoryManager;
 
-class TestCase extends Orchestra
+abstract class TestCase extends Orchestra
 {
-    protected function getPackageProviders($app)
+    /**
+     * @return array<int, class-string>
+     */
+    protected function getPackageProviders($app): array
     {
         return [
             CampaignsServiceProvider::class,
         ];
     }
 
-    public function getEnvironmentSetUp($app)
+    protected function getEnvironmentSetUp($app): void
     {
         config()->set('database.default', 'testing');
         config()->set('mail.default', 'array');
 
         InMemoryManager::flush();
+    }
+
+    protected function defineDatabaseMigrations(): void
+    {
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
     }
 }
