@@ -40,10 +40,15 @@ php artisan vendor:publish --tag="campaigns-migrations"
 php artisan migrate
 ```
 
-You can also publish the translations:
+Campaigns builds on three sibling packages (see **Integrates with** below), all pulled in
+automatically as dependencies: `contacts-for-laravel`, `options-for-laravel`, and
+`enums-for-laravel`. Publish and run their migrations so recipient resolution and DB-backed
+send defaults work:
 
 ```bash
-php artisan vendor:publish --tag="campaigns-translations"
+php artisan vendor:publish --tag="options-migrations"
+php artisan vendor:publish --tag="contacts-migrations"
+php artisan migrate
 ```
 
 ## Configuration
@@ -53,6 +58,12 @@ The published config file (`config/campaigns.php`):
 ```php
 return [
     'manager' => env('CAMPAIGNS_MANAGER', \RoundlyConsulting\Campaigns\Managers\InMemoryManager::class),
+    'from-name' => env('CAMPAIGNS_FROM_NAME', ''),
+    'from-address' => env('CAMPAIGNS_FROM_ADDRESS', ''),
+    'recipients' => [
+        'only-verified' => env('CAMPAIGNS_ONLY_VERIFIED', false),
+        'contact-type' => env('CAMPAIGNS_RECIPIENT_CONTACT_TYPE', 'email'),
+    ],
     'batch-queue' => env('CAMPAIGNS_BATCH_QUEUE', 'default'),
     'sending-queue' => env('CAMPAIGNS_SENDING_QUEUE', 'default'),
     'process-recipient-job' => \RoundlyConsulting\Campaigns\Jobs\SendCampaignEmail::class,
@@ -64,11 +75,19 @@ return [
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `manager` | `class-string` | `InMemoryManager::class` (env `CAMPAIGNS_MANAGER`) | The `Manager` implementation bound in the container. Set to `DatabaseManager::class` to persist campaigns, or point at your own. |
-| `batch-queue` | `string` | `default` (env `CAMPAIGNS_BATCH_QUEUE`) | Queue used for the campaign batch. |
-| `sending-queue` | `string` | `default` (env `CAMPAIGNS_SENDING_QUEUE`) | Queue used for each per-recipient processing job. |
+| `from-name` | `string` | `''` (env `CAMPAIGNS_FROM_NAME`) | Default sender name used when a campaign is dispatched without `->from()`. Seeds the `DefaultFromName` option. |
+| `from-address` | `string` | `''` (env `CAMPAIGNS_FROM_ADDRESS`) | Default sender address used when a campaign is dispatched without `->from()`. Seeds the `DefaultFromAddress` option. |
+| `recipients.only-verified` | `bool` | `false` (env `CAMPAIGNS_ONLY_VERIFIED`) | Skip owners/contacts without a verified contact when resolving recipients. Seeds the `OnlyVerifiedRecipients` option. |
+| `recipients.contact-type` | `string` | `email` (env `CAMPAIGNS_RECIPIENT_CONTACT_TYPE`) | Contact kind resolved for an owner when `->viaContactType()` is unset. Seeds the `DefaultRecipientContactType` option. |
+| `batch-queue` | `string` | `default` (env `CAMPAIGNS_BATCH_QUEUE`) | Queue used for the campaign batch. Seeds the `DefaultBatchQueue` option. |
+| `sending-queue` | `string` | `default` (env `CAMPAIGNS_SENDING_QUEUE`) | Queue used for each per-recipient processing job. Seeds the `DefaultSendingQueue` option. |
 | `process-recipient-job` | `class-string` | `SendCampaignEmail::class` | The job dispatched once per recipient. Must implement `Contracts\ProcessesCampaignRecipient`. |
 | `notification` | `class-string\|null` | `null` (env `CAMPAIGNS_NOTIFICATION`) | A `Notifications\CampaignNotification` subclass delivered by `SendCampaignNotification`. |
-| `notification-channel` | `string` | `mail` (env `CAMPAIGNS_NOTIFICATION_CHANNEL`) | Routing channel for `SendCampaignNotification`'s on-demand notifiable. |
+| `notification-channel` | `string` | `mail` (env `CAMPAIGNS_NOTIFICATION_CHANNEL`) | Routing channel for `SendCampaignNotification`'s on-demand notifiable. Seeds the `DefaultChannel` option. |
+
+The send defaults above are also **DB-backed and runtime-editable** through
+`options-for-laravel` — the config value is the seed/fallback, a stored option overrides it.
+See **Integrates with**.
 
 ## Usage
 
@@ -96,10 +115,11 @@ $campaign->progress->isComplete();   // bool
 Campaigns::cancel($campaign->uuid);
 ```
 
-`->to()` is additive and accepts an email/route string, a `CampaignRecipient`, or any
-iterable of those. Use `->prepare()` instead of `->dispatch()` to create the batch and leave
-the campaign `Pending` without sending. `->uuid()`, `->subject()`, and `->content()` override
-the builder's defaults.
+`->to()` is additive and accepts an email/route string, a `CampaignRecipient`, a
+`contacts-for-laravel` `Contact` record, a `HasContacts` owner model, or any iterable of
+those (see **Integrates with**). Use `->prepare()` instead of `->dispatch()` to create the
+batch and leave the campaign `Pending` without sending. `->uuid()`, `->subject()`, and
+`->content()` override the builder's defaults.
 
 ### The low-level `Manager`
 
@@ -140,7 +160,10 @@ unknown; `find()` returns `null`.
 - `CampaignRecipient` — `uuid`, `name`, `reachableAt`, `hasBeenProcessed`, `errorOccured`,
   `errorMessage` (`null` when no error), and `toArray()`.
 - `Enums\CampaignStatus` — `Created`, `Pending`, `Processing`, `Completed`, `Failed`,
-  `Canceled`, plus `isTerminal()` and `label()`.
+  `Canceled`, plus `isTerminal()`. It adopts the `enums-for-laravel` `Helpers` trait, so you
+  also get `CampaignStatus::values()`, `::labels()`, `::options()`, `::toOptions()`,
+  `::validationRule()`, `->readable()`/`->label()`, and case lookups
+  (`tryFromName()`, `hasValue()`, …).
 
 ### Events
 
@@ -218,6 +241,64 @@ php artisan campaigns:cancel {uuid}
 |---|---|---|
 | `campaigns:list` | `--offset=0`, `--limit=10` | Paginated table of campaigns and progress. |
 | `campaigns:cancel` | `{uuid}` | Cancel a campaign and its batch; non-zero exit on unknown uuid. |
+
+## Integrates with
+
+Campaigns hard-depends on three sibling packages and builds real features on them.
+
+### `contacts-for-laravel` — recipient resolution
+
+Address a campaign straight from your existing contact records instead of copy-pasting email
+strings. `->to()` accepts a `Contact` model or any `HasContacts` owner and resolves a reachable
+recipient (auto-filling the display name from the owner/label):
+
+```php
+use RoundlyConsulting\Campaigns\Facades\Campaigns;
+use RoundlyConsulting\Contacts\Enums\ContactType;
+
+Campaigns::create('Spring sale', '<p>50% off</p>')
+    ->onlyVerified()                    // skip owners/contacts without a verified contact
+    ->viaContactType(ContactType::Email) // pick the contact kind (email, phone, …)
+    ->to($user)                          // HasContacts owner → its primary email
+    ->to($contact)                       // a Contact record → its value
+    ->to(User::active()->get())          // an iterable of owners
+    ->dispatch();
+```
+
+Owners (or contacts) with no matching — or no verified — contact of the send kind are silently
+skipped, never fatal. `->viaContactType(ContactType::Phone)` resolves phone contacts, which
+pairs with `SendCampaignNotification` for SMS. Plain strings and `CampaignRecipient` instances
+still work unchanged.
+
+### `options-for-laravel` — typed, DB-backed send defaults
+
+The static send defaults are exposed as typed, runtime-editable option classes under
+`RoundlyConsulting\Campaigns\Options`: `DefaultFromName`, `DefaultFromAddress`, `DefaultChannel`,
+`DefaultBatchQueue`, `DefaultSendingQueue`, `OnlyVerifiedRecipients`, and
+`DefaultRecipientContactType`. Each falls back to its `config/campaigns.php` value until an
+option is stored, then the stored value wins:
+
+```php
+use RoundlyConsulting\Campaigns\Options\DefaultFromAddress;
+use RoundlyConsulting\Campaigns\Options\OnlyVerifiedRecipients;
+use RoundlyConsulting\Options\Facades\Options;
+
+Options::set(DefaultFromAddress::class, 'news@acme.test');
+Options::set(OnlyVerifiedRecipients::class, true);
+
+// A from-less campaign now sends from news@acme.test, and to($owner)
+// skips unverified contacts by default.
+Campaigns::create('Subject', 'Body')->to($user)->dispatch();
+```
+
+Explicit builder calls (`->from()`, `->onlyVerified()`, `->viaContactType()`) always override
+the stored options.
+
+### `enums-for-laravel` — `CampaignStatus` helpers
+
+`CampaignStatus` uses the shared `Helpers` trait for `values()`/`labels()`/`options()`/
+`toOptions()`/`validationRule()`/`readable()` and case lookups on top of its own
+`isTerminal()`.
 
 ## Testing
 
