@@ -17,6 +17,7 @@ use RoundlyConsulting\Campaigns\Contracts\ProcessesCampaignRecipient;
 use RoundlyConsulting\Campaigns\Exceptions\CampaignException;
 use RoundlyConsulting\Campaigns\Managers\Manager;
 use RoundlyConsulting\Campaigns\Notifications\CampaignNotification;
+use RoundlyConsulting\Campaigns\Support\CampaignSettings;
 use Throwable;
 
 /**
@@ -32,10 +33,7 @@ final class SendCampaignNotification implements ProcessesCampaignRecipient, Shou
 
     public function __construct(public Campaign $campaign, public CampaignRecipient $recipient)
     {
-        /** @var string $queue */
-        $queue = config('campaigns.sending-queue', 'default');
-
-        $this->queue = $queue;
+        $this->queue = app(CampaignSettings::class)->sendingQueue();
     }
 
     public function handle(Manager $manager): void
@@ -45,8 +43,7 @@ final class SendCampaignNotification implements ProcessesCampaignRecipient, Shou
         }
 
         try {
-            /** @var string $channel */
-            $channel = config('campaigns.notification-channel', 'mail');
+            $channel = app(CampaignSettings::class)->notificationChannel();
 
             NotificationFacade::route($channel, $this->recipient->reachableAt)
                 ->notify($this->resolveNotification());

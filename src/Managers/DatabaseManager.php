@@ -19,6 +19,7 @@ use RoundlyConsulting\Campaigns\Exceptions\CampaignNotFound;
 use RoundlyConsulting\Campaigns\Jobs\SendCampaignEmail;
 use RoundlyConsulting\Campaigns\Models\CampaignRecipientRecord;
 use RoundlyConsulting\Campaigns\Models\CampaignRecord;
+use RoundlyConsulting\Campaigns\Support\CampaignSettings;
 use RoundlyConsulting\Campaigns\Support\DispatchesCampaignEvents;
 
 final class DatabaseManager implements Manager
@@ -62,7 +63,7 @@ final class DatabaseManager implements Manager
 
         $batch = Bus::batch([])
             ->onQueue(
-                config('campaigns.batch-queue', 'default')
+                app(CampaignSettings::class)->batchQueue()
             )
             ->finally(fn () => $this->changeCampaignStatus($campaign->uuid, CampaignStatus::Completed))
             ->catch(fn () => $this->changeCampaignStatus($campaign->uuid, CampaignStatus::Failed))

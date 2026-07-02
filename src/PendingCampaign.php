@@ -4,16 +4,28 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Campaigns;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use RoundlyConsulting\Campaigns\Managers\Manager;
+use RoundlyConsulting\Campaigns\Support\CampaignSettings;
+use RoundlyConsulting\Campaigns\Support\RecipientResolver;
+use RoundlyConsulting\Contacts\Concerns\HasContacts;
+use RoundlyConsulting\Contacts\Enums\ContactType;
+use RoundlyConsulting\Contacts\Models\Contact;
 
 final class PendingCampaign
 {
     private string $uuid;
 
-    private string $fromName = '';
+    private ?string $fromName = null;
 
-    private string $fromAddress = '';
+    private ?string $fromAddress = null;
+
+    /** Explicit verified-only toggle; null defers to the configured default. */
+    private ?bool $onlyVerified = null;
+
+    /** Explicit contact kind; null defers to the configured default. */
+    private ?ContactType $contactType = null;
 
     /** @var list<CampaignRecipient> */
     private array $recipients = [];
@@ -56,21 +68,45 @@ final class PendingCampaign
     }
 
     /**
-     * Add one or more recipients. Accepts an email/route string, a
-     * CampaignRecipient, or an iterable of either. Calls are additive.
-     *
-     * @param  string|CampaignRecipient|iterable<mixed>  $recipients
+     * Only resolve verified contacts when adding HasContacts owners / contacts.
      */
-    public function to(string|CampaignRecipient|iterable $recipients): self
+    public function onlyVerified(bool $onlyVerified = true): self
     {
-        if (is_string($recipients) || $recipients instanceof CampaignRecipient) {
-            $this->recipients[] = $this->normalise($recipients);
+        $this->onlyVerified = $onlyVerified;
+
+        return $this;
+    }
+
+    /**
+     * Which contact kind an owner's recipient is resolved from (email, phone…).
+     */
+    public function viaContactType(ContactType|string $type): self
+    {
+        $this->contactType = $type instanceof ContactType
+            ? $type
+            : ContactType::from($type);
+
+        return $this;
+    }
+
+    /**
+     * Add one or more recipients. Accepts an email/route string, a
+     * CampaignRecipient, a contacts-for-laravel Contact record, a HasContacts
+     * owner model, or an iterable of any of these. Calls are additive; owners
+     * or contacts with no matching (or no verified) contact are skipped.
+     *
+     * @param  string|CampaignRecipient|Model|iterable<mixed>  $recipients
+     */
+    public function to(string|CampaignRecipient|Model|iterable $recipients): self
+    {
+        if (is_string($recipients) || $recipients instanceof CampaignRecipient || $recipients instanceof Model) {
+            $this->addRecipient($recipients);
 
             return $this;
         }
 
         foreach ($recipients as $recipient) {
-            $this->recipients[] = $this->normalise($recipient);
+            $this->addRecipient($recipient);
         }
 
         return $this;
@@ -106,16 +142,30 @@ final class PendingCampaign
 
     private function buildCampaign(): Campaign
     {
+        $settings = $this->settings();
+
+        $fromAddress = $this->fromAddress ?? $settings->fromAddress();
+        $fromName = $this->fromName ?? $settings->fromName();
+
         return new Campaign(
             uuid: $this->uuid,
             subject: $this->subject,
             content: $this->content,
-            fromName: $this->fromName,
-            fromAddress: $this->fromAddress,
+            fromName: $fromName,
+            fromAddress: $fromAddress,
         );
     }
 
-    private function normalise(mixed $recipient): CampaignRecipient
+    private function addRecipient(mixed $recipient): void
+    {
+        $resolved = $this->resolveRecipient($recipient);
+
+        if ($resolved instanceof CampaignRecipient) {
+            $this->recipients[] = $resolved;
+        }
+    }
+
+    private function resolveRecipient(mixed $recipient): ?CampaignRecipient
     {
         if ($recipient instanceof CampaignRecipient) {
             return $recipient;
@@ -129,8 +179,45 @@ final class PendingCampaign
             );
         }
 
+        if ($recipient instanceof Contact) {
+            return $this->resolver()->fromContact($recipient, $this->effectiveOnlyVerified());
+        }
+
+        if ($recipient instanceof Model && $this->usesContacts($recipient)) {
+            return $this->resolver()->fromOwner(
+                $recipient,
+                $this->effectiveContactType(),
+                $this->effectiveOnlyVerified(),
+            );
+        }
+
         throw new \InvalidArgumentException(
-            'Recipients must be a string or a CampaignRecipient instance.'
+            'Recipients must be a string, a CampaignRecipient, a Contact, or a HasContacts owner model.'
         );
+    }
+
+    private function usesContacts(Model $model): bool
+    {
+        return in_array(HasContacts::class, class_uses_recursive($model), true);
+    }
+
+    private function effectiveOnlyVerified(): bool
+    {
+        return $this->onlyVerified ?? $this->settings()->onlyVerifiedRecipients();
+    }
+
+    private function effectiveContactType(): ContactType
+    {
+        return $this->contactType ?? $this->settings()->defaultRecipientContactType();
+    }
+
+    private function resolver(): RecipientResolver
+    {
+        return app(RecipientResolver::class);
+    }
+
+    private function settings(): CampaignSettings
+    {
+        return app(CampaignSettings::class);
     }
 }

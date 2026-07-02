@@ -11,6 +11,14 @@ use RoundlyConsulting\Campaigns\Commands\CampaignsListCommand;
 use RoundlyConsulting\Campaigns\Managers\DatabaseManager;
 use RoundlyConsulting\Campaigns\Managers\InMemoryManager;
 use RoundlyConsulting\Campaigns\Managers\Manager;
+use RoundlyConsulting\Campaigns\Options\DefaultBatchQueue;
+use RoundlyConsulting\Campaigns\Options\DefaultChannel;
+use RoundlyConsulting\Campaigns\Options\DefaultFromAddress;
+use RoundlyConsulting\Campaigns\Options\DefaultFromName;
+use RoundlyConsulting\Campaigns\Options\DefaultRecipientContactType;
+use RoundlyConsulting\Campaigns\Options\DefaultSendingQueue;
+use RoundlyConsulting\Campaigns\Options\OnlyVerifiedRecipients;
+use RoundlyConsulting\Options\Facades\Options;
 
 final class CampaignsServiceProvider extends ServiceProvider
 {
@@ -30,7 +38,7 @@ final class CampaignsServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'campaigns');
+        $this->registerOptions();
 
         // The package only persists campaigns when the database manager is
         // selected, so migrations stay off for in-memory hosts.
@@ -51,11 +59,24 @@ final class CampaignsServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../database/migrations' => database_path('migrations'),
             ], 'campaigns-migrations');
-
-            $this->publishes([
-                __DIR__.'/../resources/lang' => $this->app->langPath('vendor/campaigns'),
-            ], 'campaigns-translations');
         }
+    }
+
+    /**
+     * Register the campaign send-default options so they are discoverable
+     * through the options-for-laravel registry (list/get by key).
+     */
+    private function registerOptions(): void
+    {
+        Options::register([
+            'campaigns.from-name' => DefaultFromName::class,
+            'campaigns.from-address' => DefaultFromAddress::class,
+            'campaigns.channel' => DefaultChannel::class,
+            'campaigns.batch-queue' => DefaultBatchQueue::class,
+            'campaigns.sending-queue' => DefaultSendingQueue::class,
+            'campaigns.only-verified-recipients' => OnlyVerifiedRecipients::class,
+            'campaigns.recipient-contact-type' => DefaultRecipientContactType::class,
+        ]);
     }
 
     private function usesDatabaseManager(): bool

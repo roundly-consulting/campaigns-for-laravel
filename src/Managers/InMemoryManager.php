@@ -16,6 +16,7 @@ use RoundlyConsulting\Campaigns\Events\RecipientFailed;
 use RoundlyConsulting\Campaigns\Events\RecipientProcessed;
 use RoundlyConsulting\Campaigns\Exceptions\CampaignNotFound;
 use RoundlyConsulting\Campaigns\Jobs\SendCampaignEmail;
+use RoundlyConsulting\Campaigns\Support\CampaignSettings;
 use RoundlyConsulting\Campaigns\Support\DispatchesCampaignEvents;
 
 final class InMemoryManager implements Manager
@@ -68,7 +69,7 @@ final class InMemoryManager implements Manager
     {
         $batch = Bus::batch([])
             ->onQueue(
-                config('campaigns.batch-queue', 'default')
+                app(CampaignSettings::class)->batchQueue()
             )
             ->finally(fn () => $this->changeCampaignStatus($campaign, CampaignStatus::Completed))
             ->catch(fn () => $this->changeCampaignStatus($campaign, CampaignStatus::Failed))

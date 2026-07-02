@@ -16,6 +16,7 @@ use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Contracts\ProcessesCampaignRecipient;
 use RoundlyConsulting\Campaigns\Managers\Manager;
+use RoundlyConsulting\Campaigns\Support\CampaignSettings;
 use Throwable;
 
 final class SendCampaignEmail implements ProcessesCampaignRecipient, ShouldQueue
@@ -24,10 +25,7 @@ final class SendCampaignEmail implements ProcessesCampaignRecipient, ShouldQueue
 
     public function __construct(public Campaign $campaign, public CampaignRecipient $recipient)
     {
-        /** @var string $queue */
-        $queue = config('campaigns.sending-queue', 'default');
-
-        $this->queue = $queue;
+        $this->queue = app(CampaignSettings::class)->sendingQueue();
     }
 
     public function handle(Manager $manager): void
