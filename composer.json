@@ -17,8 +17,19 @@
     ],
     "require": {
         "php": "^8.4",
-        "illuminate/contracts": "^12.0|^13.0"
+        "illuminate/contracts": "^12.0|^13.0",
+        "roundly-consulting/contacts-for-laravel": "@dev",
+        "roundly-consulting/enums-for-laravel": "@dev",
+        "roundly-consulting/options-for-laravel": "@dev"
     },
+    "repositories": [
+        { "type": "path", "url": "../contacts-for-laravel*", "options": { "symlink": true } },
+        { "type": "path", "url": "../options-for-laravel*", "options": { "symlink": true } },
+        { "type": "path", "url": "../enums-for-laravel*", "options": { "symlink": true } },
+        { "type": "vcs", "url": "https://github.com/roundly-consulting/contacts-for-laravel", "no-api": true },
+        { "type": "vcs", "url": "https://github.com/roundly-consulting/options-for-laravel", "no-api": true },
+        { "type": "vcs", "url": "https://github.com/roundly-consulting/enums-for-laravel", "no-api": true }
+    ],
     "require-dev": {
         "larastan/larastan": "^3.0",
         "laravel/pint": "^1.18",
