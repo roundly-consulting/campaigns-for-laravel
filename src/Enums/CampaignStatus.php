@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Campaigns\Enums;
 
+use RoundlyConsulting\Enums\Helpers;
+
 enum CampaignStatus: string
 {
+    use Helpers;
+
     case Created = 'Created';
     case Pending = 'Pending';
     case Processing = 'Processing';
@@ -23,13 +27,5 @@ enum CampaignStatus: string
             self::Failed,
             self::Canceled,
         ], strict: true);
-    }
-
-    /**
-     * Human-readable, translatable label for display.
-     */
-    public function label(): string
-    {
-        return (string) trans('campaigns::campaigns.status.'.$this->value);
     }
 }
