@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Campaigns\Tests;
 
-use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Orchestra\Testbench\TestCase as Orchestra;
@@ -63,26 +62,21 @@ abstract class TestCase extends Orchestra
     }
 
     /**
-     * Run the provider migrations the campaign integrations depend on, from
-     * their own package directories.
+     * Run the provider migrations the campaign integrations depend on. Their
+     * migrations are publish-only too, so nothing is auto-discovered — the
+     * suite loads each package's own directory explicitly.
      */
     private function loadProviderSchema(): void
     {
-        $migrations = [
-            OptionsServiceProvider::class => ['create_options_table'],
-            ContactsServiceProvider::class => ['create_contacts_table'],
+        $providers = [
+            OptionsServiceProvider::class,
+            ContactsServiceProvider::class,
         ];
 
-        foreach ($migrations as $provider => $names) {
+        foreach ($providers as $provider) {
             $base = dirname((string) (new ReflectionClass($provider))->getFileName(), 2);
 
-            foreach ($names as $name) {
-                $migration = require "{$base}/database/migrations/{$name}.php";
-
-                if ($migration instanceof Migration) {
-                    $migration->up();
-                }
-            }
+            $this->loadMigrationsFrom($base.'/database/migrations');
         }
     }
 }
