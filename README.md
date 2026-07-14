@@ -32,8 +32,9 @@ Optionally publish the config file:
 php artisan vendor:publish --tag="campaigns-config"
 ```
 
-The package works with **zero database setup** by default (the in-memory manager). Only if
-you switch to the database manager do you need to publish and run its migrations:
+Migrations are **not loaded automatically** — the package publishes them and your app owns
+them. The package works with **zero database setup** by default (the in-memory manager);
+only if you switch to the database manager do you need its two tables:
 
 ```bash
 php artisan vendor:publish --tag="campaigns-migrations"
@@ -42,8 +43,8 @@ php artisan migrate
 
 Campaigns builds on three sibling packages (see **Integrates with** below), all pulled in
 automatically as dependencies: `contacts-for-laravel`, `options-for-laravel`, and
-`enums-for-laravel`. Publish and run their migrations so recipient resolution and DB-backed
-send defaults work:
+`enums-for-laravel`. Their migrations are publish-only too — publish and run them so
+recipient resolution and DB-backed send defaults work:
 
 ```bash
 php artisan vendor:publish --tag="options-migrations"
@@ -217,7 +218,8 @@ switch to the shipped database manager with one config change:
 CAMPAIGNS_MANAGER="RoundlyConsulting\Campaigns\Managers\DatabaseManager"
 ```
 
-Then publish and run the migrations (see Installation). The database manager stores campaigns
+Then publish and run the migrations (see Installation — they are never auto-loaded, so a bare
+`php artisan migrate` will not create the tables until you publish). The database manager stores campaigns
 in `CampaignRecord` / `CampaignRecipientRecord` Eloquent models and behaves identically to the
 in-memory manager (the two are proven equivalent by a shared contract test suite). You can
 also implement `Managers\Manager` yourself against any storage and point `campaigns.manager`
