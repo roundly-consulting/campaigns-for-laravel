@@ -9,6 +9,7 @@ use Illuminate\Support\Str;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Contacts\Enums\ContactType;
 use RoundlyConsulting\Contacts\Models\Contact;
+use RoundlyConsulting\Contacts\Support\ContactModel;
 
 /**
  * Maps contacts-for-laravel records into campaign recipients. Read-only: it
@@ -55,8 +56,9 @@ final class RecipientResolver
 
     private function resolveOwnerContact(Model $owner, ContactType $type, bool $verifiedOnly): ?Contact
     {
-        /** @var class-string<Contact> $model */
-        $model = config('contacts.model', Contact::class);
+        // The contacts package owns `contacts.model` — resolve through its own
+        // resolver rather than re-reading (and re-validating) the key here.
+        $model = ContactModel::class();
 
         $base = $model::query()->forOwner($owner)->ofType($type);
 
