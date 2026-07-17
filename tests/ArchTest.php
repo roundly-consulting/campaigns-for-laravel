@@ -57,6 +57,14 @@ ArchPresets::noLocalCryptoPrimitives('RoundlyConsulting\Campaigns');
  * php/illuminate/roundly, and the workflow installs test tooling with `--dev`. If it goes
  * red the graph is wrong — never widen the allow-list to quiet it.
  */
+/**
+ * The morph-key seam, guarded. Campaigns ships no morph columns today, but the pin still
+ * adopts: it scans the real migration files and stays green while none use a raw
+ * `$table->morphs()`, and would red the moment one bypassed the `morphKey(...)` seam. A
+ * non-vacuous guard against a future polymorphic column landing without the KeyType seam.
+ */
+ArchPresets::morphColumnsUseTheSeam(__DIR__.'/../database/migrations');
+
 ArchPresets::runtimeRequireIsWhitelisted(__DIR__.'/../composer.json');
 
 ArchPresets::noDebuggingLeftovers();
