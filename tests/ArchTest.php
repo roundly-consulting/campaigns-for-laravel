@@ -33,11 +33,10 @@ ArchPresets::strictTypes('RoundlyConsulting\Campaigns');
  * genuinely does not apply here (the same distinction that re-scored metrics' "4" and
  * kubernetes-api's "11").
  */
-ArchPresets::finalByDefault('RoundlyConsulting\Campaigns')
-    ->ignoring([
-        CampaignException::class,
-        CampaignNotification::class,
-    ]);
+ArchPresets::finalByDefault('RoundlyConsulting\Campaigns', [
+    CampaignException::class,
+    CampaignNotification::class,
+]);
 
 /**
  * Campaigns does no cryptography. The ban is a standing guard against an unsubscribe token
