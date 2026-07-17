@@ -9,6 +9,7 @@ use Illuminate\Bus\Batch;
 use Illuminate\Bus\BatchRepository;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Str;
 use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignProgress;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
@@ -26,8 +27,22 @@ final class DatabaseManager implements Manager
 {
     use DispatchesCampaignEvents;
 
+    /**
+     * A non-uuid can never match the `uuid` column, so it resolves to null without a query.
+     *
+     * The guard exists because the two engines disagreed about HOW that fails. `uuid` is a
+     * real type on Postgres and a plain text column on SQLite, so `where('uuid', 'missing')`
+     * quietly matched nothing on SQLite and raised `invalid input syntax for type uuid` on
+     * Postgres — meaning `findOrFail()` threw a raw QueryException instead of the package's
+     * typed CampaignNotFound, for every host on a real engine. Returning null early is what
+     * the SQLite path already did, and it is what makes findOrFail's contract hold on both.
+     */
     public function find(string $campaignUuid): ?Campaign
     {
+        if (! Str::isUuid($campaignUuid)) {
+            return null;
+        }
+
         $record = CampaignRecord::query()->where('uuid', $campaignUuid)->first();
 
         return $record instanceof CampaignRecord ? $this->toCampaign($record) : null;
@@ -161,6 +176,10 @@ final class DatabaseManager implements Manager
 
     public function findRecipient(string $campaignUuid, string $recipientUuid): ?CampaignRecipient
     {
+        if (! Str::isUuid($campaignUuid) || ! Str::isUuid($recipientUuid)) {
+            return null;
+        }
+
         $record = CampaignRecipientRecord::query()
             ->where('campaign_uuid', $campaignUuid)
             ->where('uuid', $recipientUuid)
