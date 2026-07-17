@@ -27,51 +27,51 @@ it('completes a campaign through the batch finally callback', function (): void 
     fakeBus();
 
     $this->manager->prepare(new Campaign(
-        uuid: 'db-1',
+        uuid: '00000000-0000-4000-8000-0000000000d1',
         subject: 'DB',
         content: 'Body',
         fromName: 'Shop',
         fromAddress: 'no-reply@shop.tld',
     ));
 
-    $batch = $this->manager->findBatchForCampaign($this->manager->findOrFail('db-1'));
+    $batch = $this->manager->findBatchForCampaign($this->manager->findOrFail('00000000-0000-4000-8000-0000000000d1'));
 
     foreach ($batch->options['finally'] as $callback) {
         $callback($batch);
     }
 
-    expect($this->manager->find('db-1')->progress->status)->toBe(CampaignStatus::Completed);
+    expect($this->manager->find('00000000-0000-4000-8000-0000000000d1')->progress->status)->toBe(CampaignStatus::Completed);
 });
 
 it('ignores a status change when the campaign record is gone', function (): void {
     fakeBus();
 
     $this->manager->prepare(new Campaign(
-        uuid: 'db-2',
+        uuid: '00000000-0000-4000-8000-0000000000d2',
         subject: 'DB',
         content: 'Body',
         fromName: 'Shop',
         fromAddress: 'no-reply@shop.tld',
     ));
 
-    $batch = $this->manager->findBatchForCampaign($this->manager->findOrFail('db-2'));
+    $batch = $this->manager->findBatchForCampaign($this->manager->findOrFail('00000000-0000-4000-8000-0000000000d2'));
 
-    CampaignRecord::query()->where('uuid', 'db-2')->forceDelete();
+    CampaignRecord::query()->where('uuid', '00000000-0000-4000-8000-0000000000d2')->forceDelete();
 
     foreach ($batch->options['finally'] as $callback) {
         $callback($batch);
     }
 
-    expect($this->manager->find('db-2'))->toBeNull();
+    expect($this->manager->find('00000000-0000-4000-8000-0000000000d2'))->toBeNull();
 });
 
 it('does not change a campaign already in the target status', function (): void {
     $record = CampaignRecord::factory()->create([
-        'uuid' => 'db-3',
+        'uuid' => '00000000-0000-4000-8000-0000000000d3',
         'status' => CampaignStatus::Canceled,
     ]);
 
-    $this->manager->cancel('db-3');
+    $this->manager->cancel('00000000-0000-4000-8000-0000000000d3');
 
     expect($record->fresh()->ended_at)->toBeNull();
 });

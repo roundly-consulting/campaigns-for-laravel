@@ -4,17 +4,15 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Campaigns\Tests;
 
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-use Orchestra\Testbench\TestCase as Orchestra;
-use ReflectionClass;
+use Illuminate\Support\ServiceProvider;
 use RoundlyConsulting\Campaigns\CampaignsServiceProvider;
 use RoundlyConsulting\Campaigns\Managers\InMemoryManager;
 use RoundlyConsulting\Contacts\ContactsServiceProvider;
 use RoundlyConsulting\Options\Facades\Options;
 use RoundlyConsulting\Options\OptionsServiceProvider;
+use RoundlyConsulting\Testing\PackageTestCase;
 
-abstract class TestCase extends Orchestra
+abstract class TestCase extends PackageTestCase
 {
     protected function setUp(): void
     {
@@ -22,15 +20,18 @@ abstract class TestCase extends Orchestra
 
         InMemoryManager::flush();
 
-        // The options package memoises resolved values in a static, per-process
-        // cache that would otherwise leak across the fresh in-memory databases.
+        // The options package memoises resolved values in a static, per-process cache that
+        // would otherwise leak across the fresh databases each test gets.
         Options::flushCache();
     }
 
     /**
-     * @return array<int, class-string>
+     * Every provider campaigns hard-requires, in registration order. A host auto-discovers
+     * these; the suite must list them or the test environment is a fiction.
+     *
+     * @return list<class-string<ServiceProvider>>
      */
-    protected function getPackageProviders($app): array
+    protected function packageProviders(): array
     {
         return [
             OptionsServiceProvider::class,
@@ -39,44 +40,35 @@ abstract class TestCase extends Orchestra
         ];
     }
 
-    protected function getEnvironmentSetUp($app): void
+    /**
+     * No package auto-loads its migrations (they are publish-only), so the suite runs them
+     * itself — exactly like a host app does after publishing. Every source is named by
+     * **provider class**, never by a hand-resolved path: the base case reflects each
+     * provider to its own `database/migrations`, so this keeps working when a provider
+     * renames a file or composer moves the package between a symlinked path repo and a real
+     * VCS install.
+     *
+     * @return list<class-string<ServiceProvider>|string>
+     */
+    protected function migrationSources(): array
     {
-        config()->set('database.default', 'testing');
-        config()->set('mail.default', 'array');
-
-        // Keep the options cache out of the way so each test reads fresh state.
-        config()->set('options.cache.enabled', false);
-    }
-
-    protected function defineDatabaseMigrations(): void
-    {
-        $this->loadProviderSchema();
-
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
-
-        Schema::create('campaign_users', function (Blueprint $table): void {
-            $table->id();
-            $table->string('name')->nullable();
-            $table->timestamps();
-        });
+        return [
+            OptionsServiceProvider::class,
+            ContactsServiceProvider::class,
+            CampaignsServiceProvider::class,
+            __DIR__.'/database/migrations',
+        ];
     }
 
     /**
-     * Run the provider migrations the campaign integrations depend on. Their
-     * migrations are publish-only too, so nothing is auto-discovered — the
-     * suite loads each package's own directory explicitly.
+     * @return array<string, mixed>
      */
-    private function loadProviderSchema(): void
+    protected function configBeforeBoot(): array
     {
-        $providers = [
-            OptionsServiceProvider::class,
-            ContactsServiceProvider::class,
+        return [
+            'mail.default' => 'array',
+            // Keep the options cache out of the way so each test reads fresh state.
+            'options.cache.enabled' => false,
         ];
-
-        foreach ($providers as $provider) {
-            $base = dirname((string) (new ReflectionClass($provider))->getFileName(), 2);
-
-            $this->loadMigrationsFrom($base.'/database/migrations');
-        }
     }
 }

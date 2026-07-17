@@ -22,11 +22,11 @@ it('soft deletes a campaign record', function (): void {
 });
 
 it('relates recipients to a campaign', function (): void {
-    $campaign = CampaignRecord::factory()->create(['uuid' => 'rel-1']);
-    CampaignRecipientRecord::factory()->create(['campaign_uuid' => 'rel-1']);
+    $campaign = CampaignRecord::factory()->create(['uuid' => '00000000-0000-4000-8000-0000000000e1']);
+    CampaignRecipientRecord::factory()->create(['campaign_uuid' => '00000000-0000-4000-8000-0000000000e1']);
 
     expect($campaign->recipients)->toHaveCount(1)
-        ->and($campaign->recipients->first()->campaign->uuid)->toBe('rel-1');
+        ->and($campaign->recipients->first()->campaign->uuid)->toBe('00000000-0000-4000-8000-0000000000e1');
 });
 
 it('casts recipient booleans', function (): void {

@@ -123,7 +123,7 @@ it('dispatches recipient events with the correct payload', function (): void {
     Event::fake();
 
     $recipient = new CampaignRecipient(
-        uuid: 'r-1',
+        uuid: '00000000-0000-4000-8000-00000000a001',
         name: 'Jane',
         reachableAt: 'jane@doe.tld',
     );
@@ -131,7 +131,7 @@ it('dispatches recipient events with the correct payload', function (): void {
     $this->manager->markRecipientAsProcessed($this->campaign, $recipient);
     Event::assertDispatched(
         RecipientProcessed::class,
-        fn (RecipientProcessed $event): bool => $event->recipient->uuid === 'r-1'
+        fn (RecipientProcessed $event): bool => $event->recipient->uuid === '00000000-0000-4000-8000-00000000a001'
     );
 
     $this->manager->markRecipientAsFailed($this->campaign, $recipient, 'boom');

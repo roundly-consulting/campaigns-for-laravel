@@ -20,7 +20,7 @@ dataset('managers', [
     'database' => fn (): Manager => new DatabaseManager,
 ]);
 
-function makeCampaign(string $uuid = 'c-1'): Campaign
+function makeCampaign(string $uuid = '00000000-0000-4000-8000-c00000000001'): Campaign
 {
     return new Campaign(
         uuid: $uuid,
@@ -37,7 +37,7 @@ it('prepares a campaign to pending', function (Closure $make): void {
 
     $manager->prepare(makeCampaign());
 
-    expect($manager->find('c-1')->progress->status)->toBe(CampaignStatus::Pending);
+    expect($manager->find('00000000-0000-4000-8000-c00000000001')->progress->status)->toBe(CampaignStatus::Pending);
 })->with('managers');
 
 it('returns null when finding a missing campaign', function (Closure $make): void {
@@ -60,15 +60,15 @@ it('pushes recipients and starts processing', function (Closure $make): void {
     $manager = $make();
 
     $manager->prepare(makeCampaign());
-    $manager->pushRecipientsToCampaign('c-1', [
-        new CampaignRecipient(uuid: 'r-1', name: 'John', reachableAt: 'john@doe.tld'),
-        new CampaignRecipient(uuid: 'r-2', name: 'Jane', reachableAt: 'jane@doe.tld'),
+    $manager->pushRecipientsToCampaign('00000000-0000-4000-8000-c00000000001', [
+        new CampaignRecipient(uuid: '00000000-0000-4000-8000-00000000a001', name: 'John', reachableAt: 'john@doe.tld'),
+        new CampaignRecipient(uuid: '00000000-0000-4000-8000-0000000000a2', name: 'Jane', reachableAt: 'jane@doe.tld'),
     ]);
-    $manager->start('c-1');
+    $manager->start('00000000-0000-4000-8000-c00000000001');
 
-    expect($manager->find('c-1')->progress->status)->toBe(CampaignStatus::Processing)
-        ->and($manager->findRecipient('c-1', 'r-1'))->not->toBeNull()
-        ->and($manager->findRecipient('c-1', 'missing'))->toBeNull();
+    expect($manager->find('00000000-0000-4000-8000-c00000000001')->progress->status)->toBe(CampaignStatus::Processing)
+        ->and($manager->findRecipient('00000000-0000-4000-8000-c00000000001', '00000000-0000-4000-8000-00000000a001'))->not->toBeNull()
+        ->and($manager->findRecipient('00000000-0000-4000-8000-c00000000001', 'missing'))->toBeNull();
 })->with('managers');
 
 it('marks recipients processed and failed', function (Closure $make): void {
@@ -76,17 +76,17 @@ it('marks recipients processed and failed', function (Closure $make): void {
     $manager = $make();
 
     $manager->prepare(makeCampaign());
-    $manager->pushRecipientsToCampaign('c-1', [
-        $processed = new CampaignRecipient(uuid: 'r-1', name: 'John', reachableAt: 'john@doe.tld'),
-        $failed = new CampaignRecipient(uuid: 'r-2', name: 'Jane', reachableAt: 'jane@doe.tld'),
+    $manager->pushRecipientsToCampaign('00000000-0000-4000-8000-c00000000001', [
+        $processed = new CampaignRecipient(uuid: '00000000-0000-4000-8000-00000000a001', name: 'John', reachableAt: 'john@doe.tld'),
+        $failed = new CampaignRecipient(uuid: '00000000-0000-4000-8000-0000000000a2', name: 'Jane', reachableAt: 'jane@doe.tld'),
     ]);
 
-    $campaign = $manager->findOrFail('c-1');
+    $campaign = $manager->findOrFail('00000000-0000-4000-8000-c00000000001');
     $manager->markRecipientAsProcessed($campaign, $processed);
     $manager->markRecipientAsFailed($campaign, $failed, 'boom');
 
-    expect($manager->findRecipient('c-1', 'r-1')->hasBeenProcessed)->toBeTrue()
-        ->and($manager->findRecipient('c-1', 'r-2'))
+    expect($manager->findRecipient('00000000-0000-4000-8000-c00000000001', '00000000-0000-4000-8000-00000000a001')->hasBeenProcessed)->toBeTrue()
+        ->and($manager->findRecipient('00000000-0000-4000-8000-c00000000001', '00000000-0000-4000-8000-0000000000a2'))
         ->errorOccured->toBeTrue()
         ->errorMessage->toBe('boom')
         ->hasBeenProcessed->toBeFalse();
@@ -97,13 +97,13 @@ it('sets timestamps and cancels a campaign', function (Closure $make): void {
     $manager = $make();
 
     $manager->prepare(makeCampaign());
-    $manager->start('c-1');
+    $manager->start('00000000-0000-4000-8000-c00000000001');
 
-    expect($manager->find('c-1')->startedAt)->not->toBeNull();
+    expect($manager->find('00000000-0000-4000-8000-c00000000001')->startedAt)->not->toBeNull();
 
-    $manager->cancel('c-1');
+    $manager->cancel('00000000-0000-4000-8000-c00000000001');
 
-    expect($manager->find('c-1'))
+    expect($manager->find('00000000-0000-4000-8000-c00000000001'))
         ->progress->status->toBe(CampaignStatus::Canceled)
         ->endedAt->not->toBeNull();
 })->with('managers');
@@ -112,14 +112,14 @@ it('iterates campaigns with offset and limit', function (Closure $make): void {
     fakeBus();
     $manager = $make();
 
-    $manager->prepare(makeCampaign('c-1'));
-    $manager->prepare(makeCampaign('c-2'));
-    $manager->prepare(makeCampaign('c-3'));
+    $manager->prepare(makeCampaign('00000000-0000-4000-8000-c00000000001'));
+    $manager->prepare(makeCampaign('00000000-0000-4000-8000-c00000000002'));
+    $manager->prepare(makeCampaign('00000000-0000-4000-8000-c00000000003'));
 
     $seen = [];
     $manager->onEachCampaign(function (Campaign $campaign) use (&$seen): void {
         $seen[] = $campaign->uuid;
     }, offset: 1, limit: 1);
 
-    expect($seen)->toBe(['c-2']);
+    expect($seen)->toBe(['00000000-0000-4000-8000-c00000000002']);
 })->with('managers');
