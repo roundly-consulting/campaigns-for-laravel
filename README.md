@@ -20,8 +20,8 @@
 # Campaigns for Laravel
 
 Send campaigns to many recipients using Laravel queues and job batches. The package is
-storage-agnostic: it ships an in-memory manager out of the box and an optional, opt-in
-database-backed manager, and it lets you swap the per-recipient delivery job so the same
+storage-agnostic: it ships an in-memory store out of the box and an optional, opt-in
+database-backed store, and it lets you swap the per-recipient delivery job so the same
 campaign engine can deliver email, SMS, push notifications, or Laravel notifications.
 
 ## Requirements
@@ -44,8 +44,8 @@ php artisan vendor:publish --tag="campaigns-config"
 ```
 
 Migrations are **not loaded automatically** — the package publishes them and your app owns
-them. The package works with **zero database setup** by default (the in-memory manager);
-only if you switch to the database manager do you need its two tables:
+them. The package works with **zero database setup** by default (the in-memory store);
+only if you switch to the database store do you need its two tables:
 
 ```bash
 php artisan vendor:publish --tag="campaigns-migrations"
@@ -69,7 +69,7 @@ The published config file (`config/campaigns.php`):
 
 ```php
 return [
-    'manager' => env('CAMPAIGNS_MANAGER', \RoundlyConsulting\Campaigns\Managers\InMemoryManager::class),
+    'store' => env('CAMPAIGNS_STORE', \RoundlyConsulting\Campaigns\Stores\InMemoryCampaignStore::class),
     'from-name' => env('CAMPAIGNS_FROM_NAME', ''),
     'from-address' => env('CAMPAIGNS_FROM_ADDRESS', ''),
     'recipients' => [
@@ -86,7 +86,7 @@ return [
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `manager` | `class-string` | `InMemoryManager::class` (env `CAMPAIGNS_MANAGER`) | The `Manager` implementation bound in the container. Set to `DatabaseManager::class` to persist campaigns, or point at your own. |
+| `store` | `class-string` | `InMemoryCampaignStore::class` (env `CAMPAIGNS_STORE`) | Where campaigns and recipients are kept — a `Contracts\CampaignStore`. Set to `Stores\DatabaseCampaignStore::class` to persist campaigns, or point at your own. |
 | `from-name` | `string` | `''` (env `CAMPAIGNS_FROM_NAME`) | Default sender name used when a campaign is dispatched without `->from()`. Seeds the `DefaultFromName` option. |
 | `from-address` | `string` | `''` (env `CAMPAIGNS_FROM_ADDRESS`) | Default sender address used when a campaign is dispatched without `->from()`. Seeds the `DefaultFromAddress` option. |
 | `recipients.only-verified` | `bool` | `false` (env `CAMPAIGNS_ONLY_VERIFIED`) | Skip owners/contacts without a verified contact when resolving recipients. Seeds the `OnlyVerifiedRecipients` option. |
@@ -103,10 +103,9 @@ See **Integrates with**.
 
 ## Usage
 
-### The `Campaigns` facade (recommended)
+### The `Campaigns` facade
 
-The fastest way to create, address, and send a campaign is the fluent builder behind the
-`Campaigns` facade. UUIDs are generated for you.
+Create, address and send a campaign with the fluent builder. UUIDs are generated for you.
 
 ```php
 use RoundlyConsulting\Campaigns\Facades\Campaigns;
@@ -114,54 +113,141 @@ use RoundlyConsulting\Campaigns\Facades\Campaigns;
 $campaign = Campaigns::create('Buy today and spend less', '<p>Hello dear customer!</p>')
     ->from('no-reply@eshop.tld', 'Best E-Shop Ever')
     ->to(['john@doe.tld', 'jane@doe.tld'])
-    ->dispatch();
-
-// Inspect progress later.
-$campaign = Campaigns::find($campaign->uuid);
-$campaign->progress->percentage();   // float, e.g. 42.5
-$campaign->progress->remaining();    // int recipients left
-$campaign->progress->isRunning();    // bool
-$campaign->progress->isComplete();   // bool
-
-// Cancel a running campaign and its batch.
-Campaigns::cancel($campaign->uuid);
+    ->dispatch();                    // prepare + start in one call
 ```
 
 `->to()` is additive and accepts an email/route string, a `CampaignRecipient`, a
 `contacts-for-laravel` `Contact` record, a `HasContacts` owner model, or any iterable of
-those (see **Integrates with**). Use `->prepare()` instead of `->dispatch()` to create the
-batch and leave the campaign `Pending` without sending. `->uuid()`, `->subject()`, and
-`->content()` override the builder's defaults.
+those (see **Integrates with**). `->uuid()`, `->subject()` and `->content()` override the
+builder's defaults.
 
-### The low-level `Manager`
+Prepare now, send later:
 
-The facade is sugar over the configured `Manager`, which you can still drive directly:
+```php
+$campaign = Campaigns::create('Spring sale', '<p>50% off</p>')->to($subscribers)->prepare();
+
+// … later, e.g. from a scheduled job or an admin action
+Campaigns::start($campaign->uuid);
+```
+
+Only a prepared (`Pending`) campaign starts: starting one that is already sending — or has
+ended — throws `InvalidCampaignTransition` instead of queueing every recipient twice.
+
+Work with one campaign through its handle:
+
+```php
+$campaign = Campaigns::campaign($uuid);   // throws CampaignNotFound for an unknown uuid
+
+$campaign->progress()->percentage();      // live while sending: 42.5
+$campaign->progress()->remaining();       // recipients left
+$campaign->recipients();                  // Collection<CampaignRecipient>, in the order added
+$campaign->recipients(offset: 100, limit: 50);
+$campaign->recipient($recipientUuid);     // one recipient of THIS campaign
+$campaign->batch();                       // the Illuminate\Bus\Batch, or null
+$campaign->start();
+$campaign->cancel();                      // a campaign that already ended is left as it is
+```
+
+A handle is scoped to its campaign: `recipient()`, `markProcessed()` and `markFailed()`
+throw `RecipientNotFound` for a recipient of another campaign.
+
+The rest of the facade:
+
+| Method | Returns | Description |
+|---|---|---|
+| `create(string $subject, string $content)` | `PendingCampaign` | Fluent builder (`from`, `to`, `onlyVerified`, `viaContactType`, `uuid`, `subject`, `content`, `prepare`, `dispatch`). |
+| `prepare(Campaign $campaign, iterable $recipients = [])` | `Campaign` | Store a campaign built from the value object with its recipients, and leave it `Pending`. |
+| `start(Campaign\|string $campaign)` | `Campaign` | Start sending a `Pending` campaign. |
+| `cancel(Campaign\|string $campaign)` | `Campaign` | Cancel a campaign and its batch. |
+| `find(string $uuid)` | `?Campaign` | Look up a campaign (live progress while it sends). |
+| `findOrFail(string $uuid)` | `Campaign` | Look up or throw `CampaignNotFound`. |
+| `all(int $offset = 0, int $limit = 10)` | `Collection<int, Campaign>` | A page of campaigns in creation order. |
+| `campaign(Campaign\|string $campaign)` | `CampaignHandle` | One campaign: `uuid`, `get`, `progress`, `recipients`, `recipient`, `batch`, `start`, `cancel`, `markProcessed`, `markFailed`. |
+| `settings()` | `CampaignSettings` | The effective send defaults: `fromName`, `fromAddress`, `notificationChannel`, `batchQueue`, `sendingQueue`, `onlyVerifiedRecipients`, `defaultRecipientContactType`. |
+
+Recipients you add get a `campaignUuid`. Adding a recipient that already belongs to another
+campaign adds a fresh copy (new uuid, clean delivery state) — it is never moved out of the
+campaign it came from.
+
+### Without the facade
+
+The facade is sugar over `RoundlyConsulting\Campaigns\CampaignManager`. Inject it for the
+same API:
+
+```php
+use RoundlyConsulting\Campaigns\CampaignManager;
+
+final class LaunchSpringSale
+{
+    public function __construct(private CampaignManager $campaigns) {}
+
+    public function __invoke(iterable $subscribers): void
+    {
+        $campaign = $this->campaigns->create('Spring sale', '<p>50% off</p>')->to($subscribers)->prepare();
+
+        $this->campaigns->start($campaign);
+    }
+}
+```
+
+Or call an action directly — every write is one:
+
+```php
+use Illuminate\Support\Str;
+use RoundlyConsulting\Campaigns\Actions\CancelCampaignAction;
+use RoundlyConsulting\Campaigns\Actions\PrepareCampaignAction;
+use RoundlyConsulting\Campaigns\Actions\StartCampaignAction;
+use RoundlyConsulting\Campaigns\Campaign;
+use RoundlyConsulting\Campaigns\CampaignRecipient;
+
+$campaign = app(PrepareCampaignAction::class)->execute(
+    new Campaign(uuid: (string) Str::uuid(), subject: 'Spring sale', content: '<p>50% off</p>', fromName: 'Shop', fromAddress: 'no-reply@shop.tld'),
+    [new CampaignRecipient(uuid: (string) Str::uuid(), name: 'John Doe', reachableAt: 'john@doe.tld')],
+);
+
+app(StartCampaignAction::class)->execute($campaign);
+app(CancelCampaignAction::class)->execute($campaign->uuid);
+```
+
+| Action | Facade |
+|---|---|
+| `PrepareCampaignAction` | `Campaigns::prepare()`, `create()->prepare()` |
+| `StartCampaignAction` | `Campaigns::start()`, `campaign()->start()`, `create()->dispatch()` |
+| `CancelCampaignAction` | `Campaigns::cancel()`, `campaign()->cancel()`, `campaigns:cancel` |
+| `MarkRecipientProcessedAction` | `Campaigns::campaign()->markProcessed()` |
+| `MarkRecipientFailedAction` | `Campaigns::campaign()->markFailed()` |
+
+### Testing your code: `Campaigns::fake()`
 
 ```php
 use RoundlyConsulting\Campaigns\Campaign;
-use RoundlyConsulting\Campaigns\CampaignRecipient;
-use RoundlyConsulting\Campaigns\Managers\Manager;
+use RoundlyConsulting\Campaigns\Facades\Campaigns;
 
-/** @var Manager $manager */
-$manager = resolve(Manager::class);
+Campaigns::fake();
 
-$manager->prepare(new Campaign(
-    uuid: 'e184d08f-5081-4fbb-9604-7a2460c3fb3a',
-    subject: 'Buy today and spend less',
-    content: 'Hello dear customer!',
-    fromName: 'Best E-Shop Ever',
-    fromAddress: 'no-reply@eshop.tld',
-));
+// … run the code under test …
 
-$manager->pushRecipientsToCampaign('e184d08f-5081-4fbb-9604-7a2460c3fb3a', [
-    new CampaignRecipient(uuid: '7f3eb754-709e-4837-b82a-49c83223eed6', name: 'John Doe', reachableAt: 'john@doe.tld'),
-]);
-
-$manager->start('e184d08f-5081-4fbb-9604-7a2460c3fb3a');
+Campaigns::assertDispatched(fn (Campaign $campaign, array $recipients) => $campaign->subject === 'Spring sale'
+    && count($recipients) === 2);
+Campaigns::assertCancelled($uuid);
+Campaigns::assertNothingStarted();
 ```
 
-`start()`, `cancel()`, and `findOrFail()` throw `Exceptions\CampaignNotFound` when the uuid is
-unknown; `find()` returns `null`.
+The fake extends `CampaignManager`, so injected managers, the `campaigns:cancel` command and
+delivery jobs all see it. It records every write instead of running it — no batch, no queued
+job, no event, nothing written to your configured store — and keeps its own in-memory store,
+so `find()`, `all()` and `campaign()->progress()/recipients()` answer from what the test
+created. It still refuses what the real manager refuses (unknown uuid, starting a campaign
+that is not `Pending`, a recipient of another campaign).
+
+| Assertion | Passes when |
+|---|---|
+| `assertCreated(?Closure $callback)` / `assertNothingCreated()` | a campaign was prepared (`create()->prepare()`, `->dispatch()`, `Campaigns::prepare()`); the callback gets the `Campaign` and its `list<CampaignRecipient>` |
+| `assertDispatched(?Closure $callback)` / `assertNothingDispatched()` | a campaign was created **and** started |
+| `assertStarted(Campaign\|string\|null $campaign)` / `assertNothingStarted()` | `start()` ran (flat, handle or `dispatch()`) |
+| `assertCancelled(Campaign\|string\|null $campaign)` / `assertNothingCancelled()` | `cancel()` ran (flat, handle or the command) |
+| `assertRecipientProcessed(CampaignRecipient\|string\|null $recipient)` / `assertNothingProcessed()` | a delivery was recorded — e.g. by running your job's `handle()` under the fake |
+| `assertRecipientFailed(CampaignRecipient\|string\|null $recipient, ?string $error)` / `assertNothingFailed()` | a failed delivery was recorded |
 
 ### Value objects
 
@@ -170,7 +256,10 @@ unknown; `find()` returns `null`.
 - `CampaignProgress` — `status`, `sent`, `pending`, `total`, plus `percentage()`,
   `remaining()`, `isRunning()`, `isComplete()`, and `toArray()`.
 - `CampaignRecipient` — `uuid`, `name`, `reachableAt`, `hasBeenProcessed`, `errorOccured`,
-  `errorMessage` (`null` when no error), and `toArray()`.
+  `errorMessage` (`null` when no error), `campaignUuid` (set once it is added to a campaign),
+  `belongsTo($campaignUuid)`, and `toArray()`.
+- Exceptions (all extend `Exceptions\CampaignException`): `CampaignNotFound`,
+  `RecipientNotFound`, `InvalidCampaignTransition`.
 - `Enums\CampaignStatus` — `Created`, `Pending`, `Processing`, `Completed`, `Failed`,
   `Canceled`, plus `isTerminal()`. It adopts the `enums-for-laravel` `Helpers` trait, so you
   also get `CampaignStatus::values()`, `::labels()`, `::options()`, `::toOptions()`,
@@ -216,25 +305,46 @@ final class ProductLaunchNotification extends CampaignNotification
 
 To deliver via SMS, push, or any other transport, implement
 `Contracts\ProcessesCampaignRecipient` in your own job and set `campaigns.process-recipient-job`
-to it. The job is constructed with the `Campaign` and `CampaignRecipient` and should call
-`markRecipientAsProcessed()` / `markRecipientAsFailed()` on the injected `Manager`.
+to it. The job is constructed with the `Campaign` and `CampaignRecipient`, and its `handle()`
+receives the `CampaignManager` to record the outcome:
 
-### Persistence (optional database manager)
+```php
+use RoundlyConsulting\Campaigns\CampaignManager;
 
-`InMemoryManager` (default) keeps campaigns in static arrays — ideal for tests and
-create-and-send flows. For persisted campaigns (delayed starts, dashboards, retries, audit),
-switch to the shipped database manager with one config change:
+public function handle(CampaignManager $campaigns): void
+{
+    try {
+        $this->sms->send($this->recipient->reachableAt, $this->campaign->content);
+
+        $campaigns->campaign($this->campaign)->markProcessed($this->recipient);
+    } catch (Throwable $e) {
+        $campaigns->campaign($this->campaign)->markFailed($this->recipient, $e->getMessage());
+    }
+}
+```
+
+Under `Campaigns::fake()` those calls are recorded, so `assertRecipientProcessed()` /
+`assertRecipientFailed()` test your job.
+
+### Persistence (optional database store)
+
+`Stores\InMemoryCampaignStore` (default) keeps campaigns in the current process's memory —
+ideal for tests and create-and-send flows. Nothing survives the process, so a queue worker in
+another process starts empty: deliveries and events still happen there, but progress is only
+tracked where the campaign was created. For persisted campaigns (delayed starts, dashboards,
+retries, audit), switch to the shipped database store with one config change:
 
 ```dotenv
-CAMPAIGNS_MANAGER="RoundlyConsulting\Campaigns\Managers\DatabaseManager"
+CAMPAIGNS_STORE="RoundlyConsulting\Campaigns\Stores\DatabaseCampaignStore"
 ```
 
 Then publish and run the migrations (see Installation — they are never auto-loaded, so a bare
-`php artisan migrate` will not create the tables until you publish). The database manager stores campaigns
+`php artisan migrate` will not create the tables until you publish). The database store keeps campaigns
 in `CampaignRecord` / `CampaignRecipientRecord` Eloquent models and behaves identically to the
-in-memory manager (the two are proven equivalent by a shared contract test suite). You can
-also implement `Managers\Manager` yourself against any storage and point `campaigns.manager`
-at it.
+in-memory store (the two are proven equivalent by a shared contract test suite). A store is
+persistence only — `find`, `all`, `save`, `saveRecipients`, `recipients`, `findRecipient` —
+while batches, status changes and events live in the actions, so you can implement
+`Contracts\CampaignStore` against any storage and point `campaigns.store` at it.
 
 ### Console commands
 
@@ -253,7 +363,7 @@ php artisan campaigns:cancel {uuid}
 | Command | Argument / option | Description |
 |---|---|---|
 | `campaigns:list` | `--offset=0`, `--limit=10` | Paginated table of campaigns and progress. |
-| `campaigns:cancel` | `{uuid}` | Cancel a campaign and its batch; non-zero exit on unknown uuid. |
+| `campaigns:cancel` | `{uuid}` | Cancel a campaign and its batch (`Campaigns::cancel()`); non-zero exit on unknown uuid, a warning for a campaign that already ended. |
 
 ## Integrates with
 
@@ -318,6 +428,8 @@ the stored options.
 ```bash
 composer test
 ```
+
+To test code that uses this package, see **Testing your code: `Campaigns::fake()`** above.
 
 ## Changelog
 
