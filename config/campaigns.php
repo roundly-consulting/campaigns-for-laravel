@@ -3,15 +3,16 @@
 declare(strict_types=1);
 
 use RoundlyConsulting\Campaigns\Jobs\SendCampaignEmail;
-use RoundlyConsulting\Campaigns\Managers\InMemoryManager;
+use RoundlyConsulting\Campaigns\Stores\InMemoryCampaignStore;
 
 return [
     /*
-     * The Manager implementation bound in the container. Defaults to the
-     * storage-agnostic InMemoryManager. Switch to DatabaseManager::class to
-     * persist campaigns (and run the published migrations) without writing one.
+     * Where campaigns and recipients are kept: a Contracts\CampaignStore
+     * implementation. Defaults to the in-process InMemoryCampaignStore. Switch
+     * to Stores\DatabaseCampaignStore::class to persist campaigns (publish and
+     * run the migrations first), or point at your own implementation.
      */
-    'manager' => env('CAMPAIGNS_MANAGER', InMemoryManager::class),
+    'store' => env('CAMPAIGNS_STORE', InMemoryCampaignStore::class),
 
     /*
      * Default sender used when a campaign is dispatched without calling

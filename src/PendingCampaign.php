@@ -6,13 +6,17 @@ namespace RoundlyConsulting\Campaigns;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
-use RoundlyConsulting\Campaigns\Managers\Manager;
 use RoundlyConsulting\Campaigns\Support\CampaignSettings;
 use RoundlyConsulting\Campaigns\Support\RecipientResolver;
 use RoundlyConsulting\Contacts\Concerns\HasContacts;
 use RoundlyConsulting\Contacts\Enums\ContactType;
 use RoundlyConsulting\Contacts\Models\Contact;
 
+/**
+ * The fluent builder `Campaigns::create()` returns. Its terminals go through the manager
+ * (`prepare()` → Campaigns::prepare(), `dispatch()` → prepare + Campaigns::start()), so
+ * `Campaigns::fake()` records them.
+ */
 final class PendingCampaign
 {
     private string $uuid;
@@ -30,8 +34,11 @@ final class PendingCampaign
     /** @var list<CampaignRecipient> */
     private array $recipients = [];
 
+    /**
+     * @internal build it with `Campaigns::create($subject, $content)`
+     */
     public function __construct(
-        private readonly Manager $manager,
+        private readonly CampaignManager $campaigns,
         private string $subject,
         private string $content,
     ) {
@@ -117,15 +124,7 @@ final class PendingCampaign
      */
     public function prepare(): Campaign
     {
-        $campaign = $this->buildCampaign();
-
-        $this->manager->prepare($campaign);
-
-        if ($this->recipients !== []) {
-            $this->manager->pushRecipientsToCampaign($this->uuid, $this->recipients);
-        }
-
-        return $this->manager->findOrFail($this->uuid);
+        return $this->campaigns->prepare($this->buildCampaign(), $this->recipients);
     }
 
     /**
@@ -133,11 +132,7 @@ final class PendingCampaign
      */
     public function dispatch(): Campaign
     {
-        $this->prepare();
-
-        $this->manager->start($this->uuid);
-
-        return $this->manager->findOrFail($this->uuid);
+        return $this->campaigns->start($this->prepare());
     }
 
     private function buildCampaign(): Campaign
@@ -218,6 +213,6 @@ final class PendingCampaign
 
     private function settings(): CampaignSettings
     {
-        return app(CampaignSettings::class);
+        return $this->campaigns->settings();
     }
 }

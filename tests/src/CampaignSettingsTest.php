@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use RoundlyConsulting\Campaigns\Facades\Campaigns;
-use RoundlyConsulting\Campaigns\Managers\InMemoryManager;
 use RoundlyConsulting\Campaigns\Options\DefaultBatchQueue;
 use RoundlyConsulting\Campaigns\Options\DefaultChannel;
 use RoundlyConsulting\Campaigns\Options\DefaultFromAddress;
@@ -20,7 +19,7 @@ beforeEach(fn () => fakeBus());
 
 function settings(): CampaignSettings
 {
-    return app(CampaignSettings::class);
+    return Campaigns::settings();
 }
 
 it('each option casts and defaults from config', function (): void {
@@ -112,7 +111,7 @@ it('skips unverified owners when OnlyVerifiedRecipients is on without an explici
 
     $campaign = Campaigns::create('Subject', 'Body')->to($owner)->prepare();
 
-    expect(InMemoryManager::$recipients[$campaign->uuid] ?? [])->toHaveCount(0);
+    expect(Campaigns::campaign($campaign)->recipients())->toHaveCount(0);
 });
 
 it('lets an explicit onlyVerified(false) override the option', function (): void {
@@ -123,7 +122,7 @@ it('lets an explicit onlyVerified(false) override the option', function (): void
 
     $campaign = Campaigns::create('Subject', 'Body')->onlyVerified(false)->to($owner)->prepare();
 
-    expect(InMemoryManager::$recipients[$campaign->uuid] ?? [])->toHaveCount(1);
+    expect(Campaigns::campaign($campaign)->recipients())->toHaveCount(1);
 });
 
 it('drives kind resolution from DefaultRecipientContactType', function (): void {
@@ -135,7 +134,7 @@ it('drives kind resolution from DefaultRecipientContactType', function (): void 
 
     $campaign = Campaigns::create('Subject', 'Body')->to($owner)->prepare();
 
-    $recipients = array_values(InMemoryManager::$recipients[$campaign->uuid]);
+    $recipients = Campaigns::campaign($campaign)->recipients()->all();
 
     expect($recipients[0]->reachableAt)->toBe($phone->value);
 });
@@ -152,7 +151,7 @@ it('lets an explicit viaContactType override the option', function (): void {
         ->to($owner)
         ->prepare();
 
-    $recipients = array_values(InMemoryManager::$recipients[$campaign->uuid]);
+    $recipients = Campaigns::campaign($campaign)->recipients()->all();
 
     expect($recipients[0]->reachableAt)->toBe('ada@calc.test');
 });

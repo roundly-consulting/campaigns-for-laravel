@@ -60,8 +60,8 @@ it('runs on the driver the environment declares', function (): void {
 });
 
 /**
- * The DatabaseManager path is the half of campaigns that touches an engine at all (the
- * default InMemoryManager never does), so pinning a campaign + recipient round-trip on
+ * The DatabaseCampaignStore path is the half of campaigns that touches an engine at all (the
+ * default InMemoryCampaignStore never does), so pinning a campaign + recipient round-trip on
  * whatever engine the leg configured proves those columns are usable rather than merely
  * creatable.
  */

@@ -5,13 +5,13 @@ declare(strict_types=1);
 use Illuminate\Support\Carbon;
 use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignProgress;
+use RoundlyConsulting\Campaigns\Contracts\CampaignStore;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
-use RoundlyConsulting\Campaigns\Managers\Manager;
 
 beforeEach(function () {
-    $this->manager = resolve(Manager::class);
+    $store = resolve(CampaignStore::class);
 
-    $this->manager->addCampaign(new Campaign(
+    $store->save(new Campaign(
         uuid: '851d62ce-9d90-475b-89f8-b14f56050dd8',
         subject: 'Unit',
         content: 'Hello',
@@ -19,7 +19,7 @@ beforeEach(function () {
         fromAddress: 'unit@testing.tld',
     ));
 
-    $this->manager->addCampaign(new Campaign(
+    $store->save(new Campaign(
         uuid: 'fc6aa8c0-79fa-420f-92a3-405167140616',
         subject: 'Test',
         content: 'Hi',
@@ -34,7 +34,7 @@ beforeEach(function () {
         startedAt: Carbon::parse('2023-01-10 18:00'),
     ));
 
-    $this->manager->addCampaign(new Campaign(
+    $store->save(new Campaign(
         uuid: '5fd217ef-6815-421c-9576-a0fd123f8d6d',
         subject: 'Another one!',
         content: 'Heya',

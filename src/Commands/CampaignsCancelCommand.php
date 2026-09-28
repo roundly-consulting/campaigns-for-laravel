@@ -6,6 +6,7 @@ namespace RoundlyConsulting\Campaigns\Commands;
 
 use Illuminate\Console\Command;
 use RoundlyConsulting\Campaigns\CampaignManager;
+use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
 use RoundlyConsulting\Campaigns\Exceptions\CampaignNotFound;
 
 final class CampaignsCancelCommand extends Command
@@ -20,11 +21,17 @@ final class CampaignsCancelCommand extends Command
         $uuid = $this->argument('uuid');
 
         try {
-            $campaigns->cancel($uuid);
+            $campaign = $campaigns->cancel($uuid);
         } catch (CampaignNotFound $e) {
             $this->error($e->getMessage());
 
             return self::FAILURE;
+        }
+
+        if ($campaign->progress->status !== CampaignStatus::Canceled) {
+            $this->warn("Campaign [{$uuid}] already ended ({$campaign->progress->status->label()}); nothing to cancel.");
+
+            return self::SUCCESS;
         }
 
         $this->info("Campaign [{$uuid}] cancelled.");

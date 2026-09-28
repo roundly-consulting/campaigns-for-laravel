@@ -63,3 +63,24 @@ it('serialises to an array', function (): void {
         ])
         ->and($campaign->toArray()['startedAt'])->toContain('2026-01-01');
 });
+
+it('clones deeply so a copy shares no mutable state', function (): void {
+    $campaign = new Campaign(
+        uuid: 'uuid-1',
+        subject: 'Hi',
+        content: 'Hi',
+        fromName: 'Shop',
+        fromAddress: 'no-reply@shop.tld',
+        startedAt: Carbon::parse('2026-01-01 10:00:00'),
+        endedAt: Carbon::parse('2026-01-01 11:00:00'),
+    );
+
+    $copy = clone $campaign;
+    $copy->progress->sent = 9;
+    $copy->startedAt?->addDay();
+    $copy->endedAt?->addDay();
+
+    expect($campaign->progress->sent)->toBe(0)
+        ->and($campaign->startedAt?->toDateTimeString())->toBe('2026-01-01 10:00:00')
+        ->and($campaign->endedAt?->toDateTimeString())->toBe('2026-01-01 11:00:00');
+});

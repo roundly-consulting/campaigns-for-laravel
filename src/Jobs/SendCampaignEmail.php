@@ -13,9 +13,9 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Mail;
 use RoundlyConsulting\Campaigns\Campaign;
+use RoundlyConsulting\Campaigns\CampaignManager;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Contracts\ProcessesCampaignRecipient;
-use RoundlyConsulting\Campaigns\Managers\Manager;
 use RoundlyConsulting\Campaigns\Support\CampaignSettings;
 use Throwable;
 
@@ -28,7 +28,7 @@ final class SendCampaignEmail implements ProcessesCampaignRecipient, ShouldQueue
         $this->queue = app(CampaignSettings::class)->sendingQueue();
     }
 
-    public function handle(Manager $manager): void
+    public function handle(CampaignManager $campaigns): void
     {
         if ($this->batch()?->cancelled()) {
             return;
@@ -48,9 +48,9 @@ final class SendCampaignEmail implements ProcessesCampaignRecipient, ShouldQueue
                     )
             );
 
-            $manager->markRecipientAsProcessed($this->campaign, $this->recipient);
+            $campaigns->campaign($this->campaign)->markProcessed($this->recipient);
         } catch (Throwable $e) {
-            $manager->markRecipientAsFailed($this->campaign, $this->recipient, $e->getMessage());
+            $campaigns->campaign($this->campaign)->markFailed($this->recipient, $e->getMessage());
         }
     }
 }

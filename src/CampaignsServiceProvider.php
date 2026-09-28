@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Campaigns;
 
-use Illuminate\Contracts\Foundation\Application;
 use RoundlyConsulting\Campaigns\Commands\CampaignsCancelCommand;
 use RoundlyConsulting\Campaigns\Commands\CampaignsListCommand;
+use RoundlyConsulting\Campaigns\Contracts\CampaignStore;
 use RoundlyConsulting\Campaigns\Jobs\SendCampaignEmail;
-use RoundlyConsulting\Campaigns\Managers\InMemoryManager;
-use RoundlyConsulting\Campaigns\Managers\Manager;
 use RoundlyConsulting\Campaigns\Options\DefaultBatchQueue;
 use RoundlyConsulting\Campaigns\Options\DefaultChannel;
 use RoundlyConsulting\Campaigns\Options\DefaultFromAddress;
@@ -17,6 +15,7 @@ use RoundlyConsulting\Campaigns\Options\DefaultFromName;
 use RoundlyConsulting\Campaigns\Options\DefaultRecipientContactType;
 use RoundlyConsulting\Campaigns\Options\DefaultSendingQueue;
 use RoundlyConsulting\Campaigns\Options\OnlyVerifiedRecipients;
+use RoundlyConsulting\Campaigns\Stores\InMemoryCampaignStore;
 use RoundlyConsulting\Options\Facades\Options;
 use RoundlyConsulting\PackageToolkit\Package;
 use RoundlyConsulting\PackageToolkit\PackageServiceProvider;
@@ -34,7 +33,7 @@ final class CampaignsServiceProvider extends PackageServiceProvider
                 CampaignsCancelCommand::class,
             ])
             ->contributesToAbout(static fn (): array => [
-                'Manager' => class_basename(self::configuredString('campaigns.manager', InMemoryManager::class)),
+                'Store' => class_basename(self::configuredString('campaigns.store', InMemoryCampaignStore::class)),
                 'Recipient job' => class_basename(self::configuredString('campaigns.process-recipient-job', SendCampaignEmail::class)),
                 // The sender identity and the queue names are deployment details
                 // (a sending domain, a host's queue topology), so the section
@@ -54,14 +53,14 @@ final class CampaignsServiceProvider extends PackageServiceProvider
     {
         parent::register();
 
-        $this->app->singleton(Manager::class, function (): Manager {
-            /** @var class-string<Manager> $manager */
-            $manager = self::configuredString('campaigns.manager', InMemoryManager::class);
+        $this->app->singleton(CampaignStore::class, function (): CampaignStore {
+            /** @var class-string<CampaignStore> $store */
+            $store = self::configuredString('campaigns.store', InMemoryCampaignStore::class);
 
-            return resolve($manager);
+            return resolve($store);
         });
 
-        $this->app->singleton(CampaignManager::class, fn (Application $app): CampaignManager => new CampaignManager($app->make(Manager::class)));
+        $this->app->singleton(CampaignManager::class);
     }
 
     public function boot(): void

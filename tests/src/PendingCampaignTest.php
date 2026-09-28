@@ -6,7 +6,6 @@ use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
 use RoundlyConsulting\Campaigns\Facades\Campaigns;
-use RoundlyConsulting\Campaigns\Managers\InMemoryManager;
 
 it('creates, addresses, and dispatches a campaign in one chain', function (): void {
     fakeBus();
@@ -20,7 +19,7 @@ it('creates, addresses, and dispatches a campaign in one chain', function (): vo
         ->toBeInstanceOf(Campaign::class)
         ->progress->status->toBe(CampaignStatus::Processing)
         ->fromName->toBe('Shop')
-        ->and(InMemoryManager::$recipients[$campaign->uuid])->toHaveCount(2);
+        ->and(Campaigns::campaign($campaign)->recipients())->toHaveCount(2);
 });
 
 it('prepare leaves the campaign pending without sending', function (): void {
@@ -45,8 +44,9 @@ it('normalises a single CampaignRecipient and an iterable', function (): void {
         ->to(new ArrayIterator(['a@a.tld', 'b@b.tld']))
         ->prepare();
 
-    expect(InMemoryManager::$recipients[$campaign->uuid])->toHaveCount(3)
-        ->and(InMemoryManager::$recipients[$campaign->uuid]['fixed-uuid']->name)->toBe('John');
+    expect(Campaigns::campaign($campaign)->recipients())->toHaveCount(3)
+        ->and(Campaigns::campaign($campaign)->recipient('fixed-uuid')->name)->toBe('John')
+        ->and($recipient->campaignUuid)->toBeNull();
 });
 
 it('respects a supplied uuid and subject/content overrides', function (): void {
@@ -71,18 +71,14 @@ it('rejects invalid recipient input', function (): void {
         ->toThrow(InvalidArgumentException::class);
 });
 
-it('exposes find and each through the facade', function (): void {
+it('exposes find and all through the facade', function (): void {
     fakeBus();
 
     Campaigns::create('One', 'Body')->uuid('uuid-1')->prepare();
     Campaigns::create('Two', 'Body')->uuid('uuid-2')->prepare();
 
-    $seen = [];
-    Campaigns::each(function (Campaign $campaign) use (&$seen): void {
-        $seen[] = $campaign->uuid;
-    });
-
-    expect($seen)->toContain('uuid-1', 'uuid-2');
+    expect(Campaigns::all()->map(fn (Campaign $campaign): string => $campaign->uuid)->all())
+        ->toBe(['uuid-1', 'uuid-2']);
 });
 
 it('cancels through the facade', function (): void {

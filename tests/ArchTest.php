@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use RoundlyConsulting\Campaigns\CampaignManager;
 use RoundlyConsulting\Campaigns\Exceptions\CampaignException;
 use RoundlyConsulting\Campaigns\Notifications\CampaignNotification;
 use RoundlyConsulting\Testing\Arch\ArchPresets;
@@ -14,7 +15,7 @@ use RoundlyConsulting\Testing\Arch\ArchPresets;
 ArchPresets::strictTypes('RoundlyConsulting\Campaigns');
 
 /**
- * Two exemptions, each a real extension point rather than an oversight:
+ * Three exemptions, each a real extension point rather than an oversight:
  *
  *  - CampaignException, the exception base hosts catch;
  *  - CampaignNotification, which hosts EXTEND to write the notification
@@ -27,7 +28,7 @@ ArchPresets::strictTypes('RoundlyConsulting\Campaigns');
  * model with no advertised seam is just a closed class.
  *
  * The row spec's `Swap? 0` was verified against the config file rather than assumed, and it
- * holds — but note what it is NOT: `campaigns.manager` binds a Manager implementation,
+ * holds — but note what it is NOT: `campaigns.store` binds a CampaignStore implementation,
  * `campaigns.process-recipient-job` a job class, and `campaigns.notification` a
  * notification. All three are class-string bindings, and none is an Eloquent model, so `S`
  * genuinely does not apply here (the same distinction that re-scored metrics' "4" and
@@ -36,6 +37,9 @@ ArchPresets::strictTypes('RoundlyConsulting\Campaigns');
 ArchPresets::finalByDefault('RoundlyConsulting\Campaigns', [
     CampaignException::class,
     CampaignNotification::class,
+    // The facade root: Campaigns::fake() swaps in CampaignsFake, a subtype, so anything that
+    // constructor-injects the manager keeps type-checking under the fake.
+    CampaignManager::class,
 ]);
 
 /**
@@ -68,3 +72,9 @@ ArchPresets::morphColumnsUseTheSeam(__DIR__.'/../database/migrations');
 ArchPresets::runtimeRequireIsWhitelisted(__DIR__.'/../composer.json');
 
 ArchPresets::noDebuggingLeftovers();
+
+/**
+ * The two Eloquent records back DatabaseCampaignStore and hold no behaviour; the pin keeps
+ * it that way — anything a model ever does goes through CampaignManager, never an action.
+ */
+ArchPresets::modelsGoThroughTheFacade('RoundlyConsulting\Campaigns');

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Facades\Campaigns;
-use RoundlyConsulting\Campaigns\Managers\InMemoryManager;
 use RoundlyConsulting\Campaigns\Tests\Fixtures\CampaignOwner;
 use RoundlyConsulting\Campaigns\Tests\Fixtures\PlainOwner;
 use RoundlyConsulting\Contacts\DataTransferObjects\ContactData;
@@ -15,7 +14,7 @@ use RoundlyConsulting\Contacts\Enums\ContactType;
  */
 function recipientsFor(string $uuid): array
 {
-    return array_values(InMemoryManager::$recipients[$uuid] ?? []);
+    return Campaigns::campaign($uuid)->recipients()->all();
 }
 
 beforeEach(fn () => fakeBus());
@@ -161,7 +160,7 @@ it('leaves plain string and CampaignRecipient inputs unchanged', function (): vo
     $recipients = recipientsFor($campaign->uuid);
 
     expect($recipients)->toHaveCount(2)
-        ->and(InMemoryManager::$recipients[$campaign->uuid]['fixed']->name)->toBe('John');
+        ->and(Campaigns::campaign($campaign)->recipient('fixed')->name)->toBe('John');
 });
 
 it('rejects a model that does not own contacts', function (): void {

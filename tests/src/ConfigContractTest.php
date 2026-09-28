@@ -23,21 +23,21 @@ it('ships exactly the config keys it reads', function (): void {
         // the `config(` token but cannot attribute it, and sees the literal key one frame
         // up. The prefix is what connects the two.
         //
-        // All four are named even though only `campaigns.manager` currently fails without
+        // All four are named even though only `campaigns.store` currently fails without
         // this. The other three happen to have a second, direct `config('campaigns.…')`
         // reader elsewhere and so pass incidentally — if that reader ever went away they
         // would report unread while `configuredString` still read them, which is a false
         // positive waiting to happen. Naming the mechanism models what is really true.
         //
-        // `campaigns.manager` is the load-bearing one: it is read at register() to bind the
-        // Manager implementation, and `configuredString` is its ONLY reader.
+        // `campaigns.store` is the load-bearing one: it is read at register() to bind the
+        // CampaignStore implementation, and `configuredString` is its ONLY reader.
         //
         // The keys are named exactly rather than using a blanket `'campaigns.'`, which would
         // count ANY string literal under the prefix as a read wherever it appeared —
         // including queue names and translation keys that are not config keys at all (the
         // trap alerts hit with its `alerts.health` route-name default).
         'extraReadPrefixes' => [
-            'campaigns.manager',
+            'campaigns.store',
             'campaigns.process-recipient-job',
             'campaigns.notification-channel',
             'campaigns.recipients.contact-type',
@@ -46,8 +46,8 @@ it('ships exactly the config keys it reads', function (): void {
         // Deliberately NO `excludeFromReverse` for the provider. The testing README's own
         // example excludes the service provider on the grounds that "a render is not a
         // read" — but CampaignsServiceProvider's `contributesToAbout()` closure reads ten
-        // `campaigns.*` keys for real, register() resolves `campaigns.manager` to bind the
-        // Manager, and the toolkit's `bindFromConfig()` reads more still. Excluding it would
+        // `campaigns.*` keys for real, register() resolves `campaigns.store` to bind the
+        // CampaignStore, and the toolkit's `bindFromConfig()` reads more still. Excluding it would
         // discard the only reader of most of this file.
     ]);
 });

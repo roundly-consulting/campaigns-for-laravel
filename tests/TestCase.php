@@ -6,7 +6,6 @@ namespace RoundlyConsulting\Campaigns\Tests;
 
 use Illuminate\Support\ServiceProvider;
 use RoundlyConsulting\Campaigns\CampaignsServiceProvider;
-use RoundlyConsulting\Campaigns\Managers\InMemoryManager;
 use RoundlyConsulting\Contacts\ContactsServiceProvider;
 use RoundlyConsulting\Options\Facades\Options;
 use RoundlyConsulting\Options\OptionsServiceProvider;
@@ -17,8 +16,6 @@ abstract class TestCase extends PackageTestCase
     protected function setUp(): void
     {
         parent::setUp();
-
-        InMemoryManager::flush();
 
         // The options package memoises resolved values in a static, per-process cache that
         // would otherwise leak across the fresh databases each test gets.

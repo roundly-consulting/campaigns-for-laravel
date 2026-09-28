@@ -9,34 +9,35 @@ use RoundlyConsulting\Campaigns\CampaignManager;
 use RoundlyConsulting\Campaigns\CampaignsServiceProvider;
 use RoundlyConsulting\Campaigns\Commands\CampaignsCancelCommand;
 use RoundlyConsulting\Campaigns\Commands\CampaignsListCommand;
-use RoundlyConsulting\Campaigns\Managers\DatabaseManager;
-use RoundlyConsulting\Campaigns\Managers\InMemoryManager;
-use RoundlyConsulting\Campaigns\Managers\Manager;
+use RoundlyConsulting\Campaigns\Contracts\CampaignStore;
+use RoundlyConsulting\Campaigns\Stores\DatabaseCampaignStore;
+use RoundlyConsulting\Campaigns\Stores\InMemoryCampaignStore;
 
 it('merges the package config', function (): void {
-    expect(config('campaigns.manager'))->toBe(InMemoryManager::class)
+    expect(config('campaigns.store'))->toBe(InMemoryCampaignStore::class)
         ->and(config('campaigns.process-recipient-job'))->toBeString()
         ->and(config('campaigns.recipients.contact-type'))->toBe('email');
 });
 
-it('binds the in-memory manager by default', function (): void {
-    expect(resolve(Manager::class))->toBeInstanceOf(InMemoryManager::class)
+it('binds the in-memory store by default', function (): void {
+    expect(resolve(CampaignStore::class))->toBeInstanceOf(InMemoryCampaignStore::class)
+        ->and(resolve(CampaignStore::class))->toBe(resolve(CampaignStore::class))
         ->and(resolve(CampaignManager::class))->toBeInstanceOf(CampaignManager::class)
         ->and(resolve(CampaignManager::class))->toBe(resolve(CampaignManager::class));
 });
 
-it('binds the database manager when it is configured', function (): void {
-    config()->set('campaigns.manager', DatabaseManager::class);
+it('binds the database store when it is configured', function (): void {
+    config()->set('campaigns.store', DatabaseCampaignStore::class);
 
-    expect(resolve(Manager::class))->toBeInstanceOf(DatabaseManager::class)
+    expect(resolve(CampaignStore::class))->toBeInstanceOf(DatabaseCampaignStore::class)
         ->and(Schema::hasTable('campaigns'))->toBeTrue()
         ->and(Schema::hasTable('campaign_recipients'))->toBeTrue();
 });
 
-it('falls back to the in-memory manager when the configured value is unusable', function (): void {
-    config()->set('campaigns.manager', '');
+it('falls back to the in-memory store when the configured value is unusable', function (): void {
+    config()->set('campaigns.store', '');
 
-    expect(resolve(Manager::class))->toBeInstanceOf(InMemoryManager::class);
+    expect(resolve(CampaignStore::class))->toBeInstanceOf(InMemoryCampaignStore::class);
 });
 
 it('registers every publish tag', function (string $tag): void {
@@ -102,7 +103,7 @@ it('contributes a campaigns section to about', function (string $expected): void
         ->assertExitCode(0);
 })->with([
     'Campaigns',
-    'Manager',
+    'Store',
     'Recipient job',
     'From name',
     'From address',
@@ -114,11 +115,11 @@ it('contributes a campaigns section to about', function (string $expected): void
     'Verified recipients only',
 ]);
 
-it('reports the configured manager and recipient job by base name in about', function (): void {
-    config()->set('campaigns.manager', DatabaseManager::class);
+it('reports the configured store and recipient job by base name in about', function (): void {
+    config()->set('campaigns.store', DatabaseCampaignStore::class);
 
     $this->artisan('about --only=campaigns')
-        ->expectsOutputToContain('DatabaseManager')
+        ->expectsOutputToContain('DatabaseCampaignStore')
         ->assertExitCode(0);
 });
 

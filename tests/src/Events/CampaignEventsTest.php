@@ -14,10 +14,10 @@ use RoundlyConsulting\Campaigns\Events\CampaignPrepared;
 use RoundlyConsulting\Campaigns\Events\CampaignStarted;
 use RoundlyConsulting\Campaigns\Events\RecipientFailed;
 use RoundlyConsulting\Campaigns\Events\RecipientProcessed;
-use RoundlyConsulting\Campaigns\Managers\Manager;
+use RoundlyConsulting\Campaigns\Facades\Campaigns;
 
 beforeEach(function (): void {
-    $this->manager = resolve(Manager::class);
+    fakeBus();
 
     $this->campaign = new Campaign(
         uuid: '3b2d9cc2-a069-4284-a894-1c021c3bfcbb',
@@ -28,113 +28,115 @@ beforeEach(function (): void {
     );
 });
 
-it('dispatches lifecycle events on real transitions', function (): void {
-    fakeBus();
+afterEach(fn () => Carbon::setTestNow());
+
+it('dispatches lifecycle events on real transitions', function (string $store): void {
+    useStore($store);
     Event::fake();
 
-    $this->manager->prepare($this->campaign);
-    Event::assertDispatched(CampaignPrepared::class);
+    Campaigns::prepare($this->campaign);
+    Event::assertDispatched(CampaignPrepared::class, fn (CampaignPrepared $event): bool => $event->campaign->progress->status === CampaignStatus::Pending);
 
-    $this->manager->start($this->campaign->uuid);
+    Campaigns::start($this->campaign->uuid);
     Event::assertDispatched(CampaignStarted::class);
 
-    $this->manager->cancel($this->campaign->uuid);
+    Campaigns::cancel($this->campaign->uuid);
     Event::assertDispatched(CampaignCancelled::class);
+})->with('stores');
+
+it('fires CampaignPrepared once the recipients are in place', function (): void {
+    $seen = null;
+    Event::listen(CampaignPrepared::class, function (CampaignPrepared $event) use (&$seen): void {
+        $seen = Campaigns::campaign($event->campaign)->recipients()->count();
+    });
+
+    Campaigns::create('Subject', 'Body')->to(['a@a.tld', 'b@b.tld'])->prepare();
+
+    expect($seen)->toBe(2);
 });
 
-it('sets startedAt when processing and endedAt on a terminal state', function (): void {
-    fakeBus();
+it('sets startedAt when processing and endedAt on a terminal state', function (string $store): void {
+    useStore($store);
     Carbon::setTestNow('2026-06-20 12:00:00');
 
-    $this->manager->prepare($this->campaign);
+    Campaigns::prepare($this->campaign);
 
-    expect($this->manager->find($this->campaign->uuid))
+    expect(Campaigns::find($this->campaign->uuid))
         ->startedAt->toBeNull()
         ->endedAt->toBeNull();
 
-    $this->manager->start($this->campaign->uuid);
+    Campaigns::start($this->campaign->uuid);
 
-    expect($this->manager->find($this->campaign->uuid)->startedAt?->toDateTimeString())
+    expect(Campaigns::find($this->campaign->uuid)->startedAt?->toDateTimeString())
         ->toBe('2026-06-20 12:00:00');
 
-    $this->manager->cancel($this->campaign->uuid);
+    Campaigns::cancel($this->campaign->uuid);
 
-    expect($this->manager->find($this->campaign->uuid)->endedAt?->toDateTimeString())
+    expect(Campaigns::find($this->campaign->uuid)->endedAt?->toDateTimeString())
         ->toBe('2026-06-20 12:00:00');
+})->with('stores');
 
-    Carbon::setTestNow();
-});
-
-it('does not re-dispatch when the status is unchanged', function (): void {
-    fakeBus();
-
-    $this->manager->addCampaign($this->campaign);
-    $this->campaign->progress->status = CampaignStatus::Canceled;
-    $this->campaign->endedAt = Carbon::now();
+it('does not re-dispatch when the campaign already ended', function (): void {
+    Campaigns::prepare($this->campaign);
+    Campaigns::cancel($this->campaign->uuid);
 
     Event::fake();
 
-    $this->manager->cancel($this->campaign->uuid);
+    Campaigns::cancel($this->campaign->uuid);
 
     Event::assertNotDispatched(CampaignCancelled::class);
 });
 
-it('completes the campaign and dispatches completed on the batch finally callback', function (): void {
-    fakeBus();
+it('completes the campaign and dispatches completed on the batch finally callback', function (string $store): void {
+    useStore($store);
     Carbon::setTestNow('2026-06-20 12:00:00');
 
-    $this->manager->prepare($this->campaign);
-    $batch = $this->manager->findBatchForCampaign($this->campaign);
+    Campaigns::prepare($this->campaign);
+    $batch = Campaigns::campaign($this->campaign->uuid)->batch();
 
     Event::fake();
 
-    foreach ($batch->options['finally'] as $callback) {
-        $callback($batch);
-    }
+    finishBatch($batch);
 
     Event::assertDispatched(CampaignCompleted::class);
 
-    expect($this->manager->find($this->campaign->uuid))
+    expect(Campaigns::find($this->campaign->uuid))
         ->progress->status->toBe(CampaignStatus::Completed)
         ->endedAt->not->toBeNull();
+})->with('stores');
 
-    Carbon::setTestNow();
-});
+it('fails the campaign and dispatches failed on the batch catch callback', function (string $store): void {
+    useStore($store);
 
-it('fails the campaign and dispatches failed on the batch catch callback', function (): void {
-    fakeBus();
-
-    $this->manager->prepare($this->campaign);
-    $batch = $this->manager->findBatchForCampaign($this->campaign);
+    Campaigns::prepare($this->campaign);
+    $batch = Campaigns::campaign($this->campaign->uuid)->batch();
 
     Event::fake();
 
-    foreach ($batch->options['catch'] as $callback) {
-        $callback($batch, new RuntimeException('boom'));
-    }
+    finishBatch($batch, 'catch');
 
     Event::assertDispatched(CampaignFailed::class);
 
-    expect($this->manager->find($this->campaign->uuid))
+    expect(Campaigns::find($this->campaign->uuid))
         ->progress->status->toBe(CampaignStatus::Failed);
-});
+})->with('stores');
 
 it('dispatches recipient events with the correct payload', function (): void {
+    $campaign = Campaigns::prepare($this->campaign, [
+        new CampaignRecipient(uuid: '00000000-0000-4000-8000-00000000a001', name: 'Jane', reachableAt: 'jane@doe.tld'),
+    ]);
+    $recipient = Campaigns::campaign($campaign)->recipient('00000000-0000-4000-8000-00000000a001');
+
     Event::fake();
 
-    $recipient = new CampaignRecipient(
-        uuid: '00000000-0000-4000-8000-00000000a001',
-        name: 'Jane',
-        reachableAt: 'jane@doe.tld',
-    );
-
-    $this->manager->markRecipientAsProcessed($this->campaign, $recipient);
+    Campaigns::campaign($campaign)->markProcessed($recipient);
     Event::assertDispatched(
         RecipientProcessed::class,
         fn (RecipientProcessed $event): bool => $event->recipient->uuid === '00000000-0000-4000-8000-00000000a001'
+            && $event->campaign->uuid === $campaign->uuid
     );
 
-    $this->manager->markRecipientAsFailed($this->campaign, $recipient, 'boom');
+    Campaigns::campaign($campaign)->markFailed($recipient, 'boom');
     Event::assertDispatched(
         RecipientFailed::class,
         fn (RecipientFailed $event): bool => $event->error === 'boom'

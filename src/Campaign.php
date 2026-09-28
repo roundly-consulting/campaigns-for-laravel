@@ -21,6 +21,17 @@ final class Campaign
     ) {}
 
     /**
+     * A clone owns its progress and timestamps, so a store that hands out copies never
+     * shares mutable state with the caller.
+     */
+    public function __clone()
+    {
+        $this->progress = clone $this->progress;
+        $this->startedAt = $this->startedAt?->copy();
+        $this->endedAt = $this->endedAt?->copy();
+    }
+
+    /**
      * @return array{uuid: string, subject: string, content: string, fromName: string, fromAddress: string, progress: array{status: string, sent: int, pending: int, total: int, remaining: int, percentage: float}, startedAt: string|null, endedAt: string|null, batch: string|null}
      */
     public function toArray(): array

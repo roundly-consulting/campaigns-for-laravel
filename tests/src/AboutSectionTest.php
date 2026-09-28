@@ -38,7 +38,7 @@ it('renders the campaigns section without leaking the sender identity or queues'
         ],
         mustRender: [
             // The positive proof each line reports rather than being silently empty.
-            'Manager',
+            'Store',
             'Recipient job',
             'From name',
             'SET',
@@ -53,7 +53,7 @@ it('renders the campaigns section without leaking the sender identity or queues'
  * string. Kept separate: it is a rendering pin, not a leak pin, and folding it into the case
  * above would need the opposite config.
  */
-it('reports the configured manager and switches in the about section', function (): void {
+it('reports the configured store and switches in the about section', function (): void {
     config()->set('campaigns.from-name', '');
     config()->set('campaigns.from-address', '');
     config()->set('campaigns.notification', null);
@@ -61,6 +61,6 @@ it('reports the configured manager and switches in the about section', function 
 
     expect('campaigns')->toLeakNoSecrets(
         secrets: ['noreply@acme-internal.example'],
-        mustRender: ['InMemoryManager', 'SendCampaignEmail', 'NONE', 'DEFAULT', 'OFF'],
+        mustRender: ['InMemoryCampaignStore', 'SendCampaignEmail', 'NONE', 'DEFAULT', 'OFF'],
     );
 });

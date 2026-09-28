@@ -7,9 +7,10 @@ use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 use RoundlyConsulting\Campaigns\Campaign;
+use RoundlyConsulting\Campaigns\CampaignManager;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
+use RoundlyConsulting\Campaigns\Facades\Campaigns;
 use RoundlyConsulting\Campaigns\Jobs\SendCampaignNotification;
-use RoundlyConsulting\Campaigns\Managers\Manager;
 use RoundlyConsulting\Campaigns\Notifications\CampaignNotification;
 
 /**
@@ -30,23 +31,24 @@ final class TestCampaignNotification extends CampaignNotification
 }
 
 beforeEach(function (): void {
-    $this->manager = resolve(Manager::class);
+    fakeBus();
 
     config()->set('campaigns.notification', TestCampaignNotification::class);
 
-    $this->job = new SendCampaignNotification(
-        campaign: new Campaign(
+    $campaign = Campaigns::prepare(
+        new Campaign(
             uuid: 'd58284c9-4e49-4c07-a26c-d220ce62b5ec',
             subject: 'Test Campaign',
             content: 'Hello',
             fromName: 'Unit Testing',
             fromAddress: 'unit@testing.tld',
         ),
-        recipient: new CampaignRecipient(
-            uuid: '629b33c5-8160-436b-bb33-02866471cfa6',
-            name: 'Jane Doe',
-            reachableAt: 'jane@doe.tld',
-        )
+        [new CampaignRecipient(uuid: '629b33c5-8160-436b-bb33-02866471cfa6', name: 'Jane Doe', reachableAt: 'jane@doe.tld')],
+    );
+
+    $this->job = new SendCampaignNotification(
+        campaign: $campaign,
+        recipient: Campaigns::campaign($campaign)->recipient('629b33c5-8160-436b-bb33-02866471cfa6'),
     );
 });
 
@@ -55,7 +57,7 @@ it('does not notify when the batch is cancelled', function (): void {
 
     NotificationFacade::fake();
 
-    $this->job->handle($this->manager);
+    $this->job->handle(resolve(CampaignManager::class));
 
     NotificationFacade::assertNothingSent();
 });
@@ -65,7 +67,7 @@ it('sends a notification and marks the recipient processed', function (): void {
 
     NotificationFacade::fake();
 
-    $this->job->handle($this->manager);
+    $this->job->handle(resolve(CampaignManager::class));
 
     NotificationFacade::assertSentOnDemand(
         TestCampaignNotification::class,
@@ -84,7 +86,7 @@ it('marks the recipient failed when no notification class is configured', functi
 
     NotificationFacade::fake();
 
-    $this->job->handle($this->manager);
+    $this->job->handle(resolve(CampaignManager::class));
 
     expect($this->job->recipient)
         ->errorOccured->toBeTrue()

@@ -91,7 +91,7 @@ jobs:
           # vars alone only say where the engine is: without the driver this job would run
           # every test on sqlite and call itself a postgres leg.
           #
-          # For campaigns this leg is what makes the DatabaseManager path real. The suite ran
+          # For campaigns this leg is what makes the DatabaseCampaignStore path real. The suite ran
           # with PRAGMA foreign_keys OFF until this row (Laravel leaves it off unless the
           # connection sets foreign_key_constraints; PackageTestCase sets it true), and the
           # campaign/recipient link is a uuid column — a real type on Postgres, plain text
