@@ -34,6 +34,9 @@ final class PendingCampaign
     /** @var list<CampaignRecipient> */
     private array $recipients = [];
 
+    /** @var array<string, true> addresses already added, normalised (trimmed, lower-cased) */
+    private array $addresses = [];
+
     /**
      * @internal build it with `Campaigns::create($subject, $content)`
      */
@@ -100,7 +103,8 @@ final class PendingCampaign
      * Add one or more recipients. Accepts an email/route string, a
      * CampaignRecipient, a contacts-for-laravel Contact record, a HasContacts
      * owner model, or an iterable of any of these. Calls are additive; owners
-     * or contacts with no matching (or no verified) contact are skipped.
+     * or contacts with no matching (or no verified) contact are skipped, and an
+     * address already added (compared case-insensitively) is not added again.
      *
      * @param  string|CampaignRecipient|Model|iterable<mixed>  $recipients
      */
@@ -155,9 +159,20 @@ final class PendingCampaign
     {
         $resolved = $this->resolveRecipient($recipient);
 
-        if ($resolved instanceof CampaignRecipient) {
-            $this->recipients[] = $resolved;
+        if (! $resolved instanceof CampaignRecipient) {
+            return;
         }
+
+        // One delivery per address, however it arrived (a string, a recipient, an owner, a
+        // contact): the first one added wins.
+        $address = mb_strtolower(trim($resolved->reachableAt));
+
+        if (isset($this->addresses[$address])) {
+            return;
+        }
+
+        $this->addresses[$address] = true;
+        $this->recipients[] = $resolved;
     }
 
     private function resolveRecipient(mixed $recipient): ?CampaignRecipient

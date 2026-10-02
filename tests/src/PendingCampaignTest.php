@@ -6,6 +6,7 @@ use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
 use RoundlyConsulting\Campaigns\Facades\Campaigns;
+use RoundlyConsulting\Campaigns\Tests\Fixtures\CampaignOwner;
 
 it('creates, addresses, and dispatches a campaign in one chain', function (): void {
     fakeBus();
@@ -89,4 +90,22 @@ it('cancels through the facade', function (): void {
     Campaigns::cancel($campaign->uuid);
 
     expect(Campaigns::find($campaign->uuid)->progress->status)->toBe(CampaignStatus::Canceled);
+});
+
+it('adds each address once, however it is passed to to()', function (): void {
+    fakeBus();
+
+    $owner = CampaignOwner::create(['name' => 'Jane']);
+    $owner->addEmail('jane@doe.tld', primary: true);
+
+    $campaign = Campaigns::create('Subject', 'Body')
+        ->to($owner)
+        ->to(['jane@doe.tld', 'Bob@Doe.tld', 'bob@doe.tld'])
+        ->to(new CampaignRecipient(uuid: 'bob-again', name: 'Bob', reachableAt: 'bob@doe.tld'))
+        ->to(collect([$owner]))
+        ->dispatch();
+
+    expect(Campaigns::campaign($campaign)->recipients()->pluck('name', 'reachableAt')->all())
+        ->toBe(['jane@doe.tld' => 'Jane', 'Bob@Doe.tld' => 'Bob@Doe.tld'])
+        ->and(Campaigns::campaign($campaign)->batch()->added)->toHaveCount(2);
 });
