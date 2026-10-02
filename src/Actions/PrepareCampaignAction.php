@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Campaigns\Actions;
 
+use Illuminate\Bus\Batch;
 use Illuminate\Support\Facades\Bus;
 use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignProgress;
@@ -46,18 +47,12 @@ final readonly class PrepareCampaignAction
 
         $recipients = CampaignRecipient::scopeAll($recipients, $campaign->uuid);
 
-        if (! $this->store->insert($campaign)) {
-            throw CampaignAlreadyExists::withUuid($campaign->uuid);
-        }
-
-        if ($recipients !== []) {
-            $this->store->saveRecipients($campaign->uuid, $recipients);
-        }
-
         // The callbacks are serialised into the batch and run in whichever process finishes
         // it, so they capture a plain snapshot and resolve the action there — never `$this`.
         $snapshot = clone $campaign;
 
+        // The batch is opened before anything is stored: a batch that cannot be opened (no
+        // `job_batches` table, say) leaves no half-prepared campaign holding the uuid.
         $batch = Bus::batch([])
             // A batch pushes every job it is given onto its own queue (a job's `$queue` is
             // overridden), so the batch is opened on the sending queue the deliveries run on.
@@ -65,13 +60,25 @@ final readonly class PrepareCampaignAction
             // Once every job ran — failed ones included — the campaign ends Completed (or Failed
             // when nothing got through). A failing job alone ends nothing: the others keep
             // sending and the campaign stays cancellable.
-            ->finally(static fn () => app(FinishCampaignAction::class)->execute($snapshot))
+            ->finally(static function (Batch $batch) use ($snapshot): void {
+                $snapshot->batch = $batch->id;
+
+                app(FinishCampaignAction::class)->execute($snapshot);
+            })
             ->allowFailures()
             ->dispatch();
 
         $campaign->batch = $batch->id;
 
-        $this->store->save($campaign);
+        if (! $this->store->insert($campaign)) {
+            $batch->delete();
+
+            throw CampaignAlreadyExists::withUuid($campaign->uuid);
+        }
+
+        if ($recipients !== []) {
+            $this->store->saveRecipients($campaign->uuid, $recipients);
+        }
 
         return $this->changeStatus->execute($campaign, CampaignStatus::Pending);
     }

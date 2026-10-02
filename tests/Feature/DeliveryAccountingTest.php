@@ -9,6 +9,7 @@ use RoundlyConsulting\Campaigns\Events\CampaignCompleted;
 use RoundlyConsulting\Campaigns\Events\CampaignFailed;
 use RoundlyConsulting\Campaigns\Facades\Campaigns;
 use RoundlyConsulting\Campaigns\Stores\DatabaseCampaignStore;
+use RoundlyConsulting\Campaigns\Stores\InMemoryCampaignStore;
 use RoundlyConsulting\Campaigns\Tests\Fixtures\CampaignOwner;
 use RoundlyConsulting\Campaigns\Tests\Fixtures\ThrowingRecipientJob;
 
@@ -110,6 +111,28 @@ describe('through a worker', function (): void {
 
         Event::assertDispatchedTimes(CampaignCompleted::class, 1);
     });
+});
+
+it('ends from the batch alone where the in-memory store never saw the campaign', function (): void {
+    useStore(InMemoryCampaignStore::class);
+    useDatabaseQueue();
+    config()->set('campaigns.process-recipient-job', ThrowingRecipientJob::class);
+
+    $ended = null;
+    Event::listen(CampaignFailed::class, function (CampaignFailed $event) use (&$ended): void {
+        $ended = $event->campaign;
+    });
+
+    Campaigns::create('Subject', 'Body')->from('shop@shop.tld')->to(['throw@a.tld', 'throw@b.tld'])->dispatch();
+
+    // The worker starts every job with a fresh (scoped) in-memory store, like another process.
+    workQueue();
+
+    expect($ended?->progress)
+        ->status->toBe(CampaignStatus::Failed)
+        ->total->toBe(2)
+        ->sent->toBe(0)
+        ->failed->toBe(2);
 });
 
 it('completes a campaign whose every owner was filtered out', function (string $store): void {
