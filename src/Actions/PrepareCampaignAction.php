@@ -10,6 +10,7 @@ use RoundlyConsulting\Campaigns\CampaignProgress;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Contracts\CampaignStore;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
+use RoundlyConsulting\Campaigns\Exceptions\CampaignAlreadyExists;
 use RoundlyConsulting\Campaigns\Support\CampaignSettings;
 
 /**
@@ -19,7 +20,8 @@ use RoundlyConsulting\Campaigns\Support\CampaignSettings;
  *
  * The campaign's lifecycle fields start fresh (status Created, no timestamps, no batch).
  * Recipients are scoped to the campaign: one that belongs to another campaign is added as a
- * copy with a new uuid, never moved.
+ * copy with a new uuid, never moved. A uuid another campaign already holds is refused —
+ * preparing never overwrites (or re-sends) an existing campaign.
  */
 final readonly class PrepareCampaignAction
 {
@@ -31,6 +33,8 @@ final readonly class PrepareCampaignAction
 
     /**
      * @param  iterable<CampaignRecipient>  $recipients
+     *
+     * @throws CampaignAlreadyExists when another campaign already holds the uuid
      */
     public function execute(Campaign $campaign, iterable $recipients = []): Campaign
     {
@@ -42,7 +46,9 @@ final readonly class PrepareCampaignAction
 
         $recipients = CampaignRecipient::scopeAll($recipients, $campaign->uuid);
 
-        $this->store->save($campaign);
+        if (! $this->store->insert($campaign)) {
+            throw CampaignAlreadyExists::withUuid($campaign->uuid);
+        }
 
         if ($recipients !== []) {
             $this->store->saveRecipients($campaign->uuid, $recipients);

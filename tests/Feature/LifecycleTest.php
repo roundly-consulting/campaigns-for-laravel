@@ -8,6 +8,7 @@ use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
 use RoundlyConsulting\Campaigns\Events\CampaignCompleted;
 use RoundlyConsulting\Campaigns\Events\CampaignFailed;
+use RoundlyConsulting\Campaigns\Exceptions\CampaignAlreadyExists;
 use RoundlyConsulting\Campaigns\Exceptions\InvalidCampaignTransition;
 use RoundlyConsulting\Campaigns\Exceptions\RecipientNotFound;
 use RoundlyConsulting\Campaigns\Facades\Campaigns;
@@ -104,4 +105,18 @@ it('keeps an unscoped recipient handed to two campaigns in both', function (stri
     expect(Campaigns::campaign($a)->recipients())->toHaveCount(1)
         ->and(Campaigns::campaign($b)->recipients())->toHaveCount(1)
         ->and(Campaigns::campaign($a)->recipient($shared->uuid)->campaignUuid)->toBe($a->uuid);
+})->with('stores');
+
+it('refuses to prepare a campaign under a uuid that is already taken', function (string $store): void {
+    useStore($store);
+
+    $first = Campaigns::create('First', 'Body')->to(['one@doe.tld', 'two@doe.tld'])->dispatch();
+
+    expect(fn () => Campaigns::create('Other', 'New body')->uuid($first->uuid)->to('three@doe.tld')->dispatch())
+        ->toThrow(CampaignAlreadyExists::class, $first->uuid)
+        ->and(Campaigns::find($first->uuid))
+        ->subject->toBe('First')
+        ->progress->status->toBe(CampaignStatus::Processing)
+        ->and(Campaigns::campaign($first)->recipients()->pluck('reachableAt')->all())->toBe(['one@doe.tld', 'two@doe.tld'])
+        ->and(Campaigns::campaign($first)->batch()->added)->toHaveCount(2);
 })->with('stores');

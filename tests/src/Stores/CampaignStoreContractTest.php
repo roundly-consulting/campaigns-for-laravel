@@ -157,3 +157,15 @@ it('keeps one recipient saved under two campaigns in both', function (string $st
         ->and($store->findRecipient('00000000-0000-4000-8000-c00000000001', $recipient->uuid)->campaignUuid)
         ->toBe('00000000-0000-4000-8000-c00000000001');
 })->with('stores');
+
+it('inserts a new campaign and refuses one whose uuid is taken', function (string $store): void {
+    $store = new $store;
+
+    $taken = storeCampaign();
+    $taken->subject = 'Taken';
+
+    expect($store->insert(storeCampaign()))->toBeTrue()
+        ->and($store->insert($taken))->toBeFalse()
+        ->and($store->find('00000000-0000-4000-8000-c00000000001')->subject)->toBe('Subject')
+        ->and($store->all())->toHaveCount(1);
+})->with('stores');

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Campaigns\Stores;
 
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -55,24 +56,28 @@ final class DatabaseCampaignStore implements CampaignStore
             ->toBase();
     }
 
+    public function insert(Campaign $campaign): bool
+    {
+        if (Str::isUuid($campaign->uuid) && CampaignRecord::withTrashed()->where('uuid', $campaign->uuid)->exists()) {
+            return false;
+        }
+
+        try {
+            // A savepoint: losing the insert race to the unique index must leave a host's
+            // enclosing transaction usable (Postgres aborts it otherwise).
+            (new CampaignRecord)->getConnection()->transaction(
+                fn () => CampaignRecord::query()->create(['uuid' => $campaign->uuid, ...$this->attributes($campaign)]),
+            );
+        } catch (UniqueConstraintViolationException) {
+            return false;
+        }
+
+        return true;
+    }
+
     public function save(Campaign $campaign): void
     {
-        CampaignRecord::withTrashed()->updateOrCreate(
-            ['uuid' => $campaign->uuid],
-            [
-                'subject' => $campaign->subject,
-                'content' => $campaign->content,
-                'from_name' => $campaign->fromName,
-                'from_address' => $campaign->fromAddress,
-                'status' => $campaign->progress->status,
-                'sent' => $campaign->progress->sent,
-                'pending' => $campaign->progress->pending,
-                'total' => $campaign->progress->total,
-                'batch' => $campaign->batch,
-                'started_at' => $campaign->startedAt,
-                'ended_at' => $campaign->endedAt,
-            ],
-        );
+        CampaignRecord::withTrashed()->updateOrCreate(['uuid' => $campaign->uuid], $this->attributes($campaign));
     }
 
     public function saveRecipients(string $campaignUuid, array $recipients): void
@@ -121,6 +126,26 @@ final class DatabaseCampaignStore implements CampaignStore
             ->first();
 
         return $record instanceof CampaignRecipientRecord ? $this->toRecipient($record) : null;
+    }
+
+    /**
+     * @return array<model-property<CampaignRecord>, mixed>
+     */
+    private function attributes(Campaign $campaign): array
+    {
+        return [
+            'subject' => $campaign->subject,
+            'content' => $campaign->content,
+            'from_name' => $campaign->fromName,
+            'from_address' => $campaign->fromAddress,
+            'status' => $campaign->progress->status,
+            'sent' => $campaign->progress->sent,
+            'pending' => $campaign->progress->pending,
+            'total' => $campaign->progress->total,
+            'batch' => $campaign->batch,
+            'started_at' => $campaign->startedAt,
+            'ended_at' => $campaign->endedAt,
+        ];
     }
 
     private function toCampaign(CampaignRecord $record): Campaign

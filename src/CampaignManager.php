@@ -12,6 +12,7 @@ use RoundlyConsulting\Campaigns\Actions\MarkRecipientProcessedAction;
 use RoundlyConsulting\Campaigns\Actions\PrepareCampaignAction;
 use RoundlyConsulting\Campaigns\Actions\StartCampaignAction;
 use RoundlyConsulting\Campaigns\Contracts\CampaignStore;
+use RoundlyConsulting\Campaigns\Exceptions\CampaignAlreadyExists;
 use RoundlyConsulting\Campaigns\Exceptions\CampaignNotFound;
 use RoundlyConsulting\Campaigns\Exceptions\InvalidCampaignTransition;
 use RoundlyConsulting\Campaigns\Exceptions\RecipientNotFound;
@@ -41,6 +42,8 @@ class CampaignManager
      * Store a campaign with its recipients and leave it Pending (nothing is sent yet).
      *
      * @param  iterable<CampaignRecipient>  $recipients
+     *
+     * @throws CampaignAlreadyExists when another campaign already holds the uuid
      */
     public function prepare(Campaign $campaign, iterable $recipients = []): Campaign
     {

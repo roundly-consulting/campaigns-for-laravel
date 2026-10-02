@@ -36,6 +36,17 @@ final class InMemoryCampaignStore implements CampaignStore
             ->values();
     }
 
+    public function insert(Campaign $campaign): bool
+    {
+        if (isset($this->campaigns[$campaign->uuid])) {
+            return false;
+        }
+
+        $this->save($campaign);
+
+        return true;
+    }
+
     public function save(Campaign $campaign): void
     {
         $this->campaigns[$campaign->uuid] = clone $campaign;

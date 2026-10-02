@@ -14,6 +14,7 @@ use RoundlyConsulting\Campaigns\CampaignProgress;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Contracts\CampaignStore;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
+use RoundlyConsulting\Campaigns\Exceptions\CampaignAlreadyExists;
 use RoundlyConsulting\Campaigns\Exceptions\InvalidCampaignTransition;
 use RoundlyConsulting\Campaigns\Exceptions\RecipientNotFound;
 use RoundlyConsulting\Campaigns\Stores\InMemoryCampaignStore;
@@ -66,7 +67,10 @@ final class CampaignsFake extends CampaignManager
 
         $recipients = CampaignRecipient::scopeAll($recipients, $campaign->uuid);
 
-        $this->memory->save($campaign);
+        if (! $this->memory->insert($campaign)) {
+            throw CampaignAlreadyExists::withUuid($campaign->uuid);
+        }
+
         $this->memory->saveRecipients($campaign->uuid, $recipients);
 
         $this->created[] = ['campaign' => clone $campaign, 'recipients' => $recipients];

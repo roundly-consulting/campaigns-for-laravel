@@ -29,6 +29,13 @@ interface CampaignStore
     public function all(int $offset = 0, int $limit = 10): Collection;
 
     /**
+     * Insert a new campaign. Returns false — and writes nothing — when its uuid is already
+     * taken (by a live or a soft-deleted campaign), so preparing can never overwrite one.
+     * The check and the write are one atomic step: of two inserts racing on one uuid, one wins.
+     */
+    public function insert(Campaign $campaign): bool;
+
+    /**
      * Insert or update the campaign by its uuid.
      */
     public function save(Campaign $campaign): void;

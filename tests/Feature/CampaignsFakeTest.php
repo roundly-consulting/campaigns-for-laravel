@@ -17,6 +17,7 @@ use RoundlyConsulting\Campaigns\Events\CampaignPrepared;
 use RoundlyConsulting\Campaigns\Events\CampaignStarted;
 use RoundlyConsulting\Campaigns\Events\RecipientFailed;
 use RoundlyConsulting\Campaigns\Events\RecipientProcessed;
+use RoundlyConsulting\Campaigns\Exceptions\CampaignAlreadyExists;
 use RoundlyConsulting\Campaigns\Exceptions\CampaignNotFound;
 use RoundlyConsulting\Campaigns\Exceptions\InvalidCampaignTransition;
 use RoundlyConsulting\Campaigns\Exceptions\RecipientNotFound;
@@ -73,6 +74,7 @@ it('refuses what the real manager refuses', function (): void {
     expect(fn () => Campaigns::start('missing'))->toThrow(CampaignNotFound::class)
         ->and(fn () => Campaigns::cancel('missing'))->toThrow(CampaignNotFound::class)
         ->and(fn () => Campaigns::start($campaign))->toThrow(InvalidCampaignTransition::class)
+        ->and(fn () => Campaigns::create('Two', 'Body')->uuid($campaign->uuid)->prepare())->toThrow(CampaignAlreadyExists::class)
         ->and(fn () => $this->fake->markRecipientProcessed($campaign, $foreign))->toThrow(RecipientNotFound::class)
         ->and(fn () => $this->fake->markRecipientFailed($campaign, $foreign, 'x'))->toThrow(RecipientNotFound::class);
 
