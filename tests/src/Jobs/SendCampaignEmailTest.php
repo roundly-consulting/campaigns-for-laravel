@@ -122,3 +122,27 @@ it('fails the job for a recipient of another campaign', function () {
 
     expect(fn () => $job->handle(resolve(CampaignManager::class)))->toThrow(RecipientNotFound::class);
 });
+
+it('sends from the mailer\'s global address when the campaign has no sender', function () {
+    config()->set('mail.from', ['address' => 'global@shop.tld', 'name' => 'Global Shop']);
+
+    $campaign = Campaigns::prepare(
+        new Campaign(uuid: '00000000-0000-4000-8000-c0000000f001', subject: 'No sender', content: 'Hi', fromName: '', fromAddress: ''),
+        [new CampaignRecipient(uuid: '00000000-0000-4000-8000-00000000f001', name: 'Jane Doe', reachableAt: 'jane@doe.tld')],
+    );
+
+    $job = new SendCampaignEmail($campaign, Campaigns::campaign($campaign)->recipient('00000000-0000-4000-8000-00000000f001'));
+    $job->withFakeBatch();
+
+    $job->handle(resolve(CampaignManager::class));
+
+    $messages = Mail::getSymfonyTransport()->messages();
+
+    expect($messages)->toHaveCount(1)
+        ->and($messages->first()->getEnvelope()->getSender())
+        ->getAddress()->toBe('global@shop.tld')
+        ->getName()->toBe('Global Shop')
+        ->and(Campaigns::campaign($campaign)->recipient('00000000-0000-4000-8000-00000000f001'))
+        ->hasBeenProcessed->toBeTrue()
+        ->errorOccured->toBeFalse();
+});

@@ -19,6 +19,11 @@ use RoundlyConsulting\Campaigns\Contracts\ProcessesCampaignRecipient;
 use RoundlyConsulting\Campaigns\Support\CampaignSettings;
 use Throwable;
 
+/**
+ * Delivers a campaign to a recipient as an HTML email. The campaign's sender is used when it
+ * has one; a blank `fromAddress` (no `->from()`, no `from-address` default) keeps the mailer's
+ * global `mail.from` address and name.
+ */
 final class SendCampaignEmail implements ProcessesCampaignRecipient, ShouldQueue
 {
     use Batchable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
@@ -35,18 +40,20 @@ final class SendCampaignEmail implements ProcessesCampaignRecipient, ShouldQueue
         }
 
         try {
-            Mail::html(
-                $this->campaign->content,
-                fn (Message $message) => $message->subject($this->campaign->subject)
-                    ->from(
+            Mail::html($this->campaign->content, function (Message $message): void {
+                $message->subject($this->campaign->subject)->to(
+                    address: $this->recipient->reachableAt,
+                    name: $this->recipient->name,
+                );
+
+                // A campaign without a sender keeps the mailer's global `mail.from`.
+                if ($this->campaign->fromAddress !== '') {
+                    $message->from(
                         address: $this->campaign->fromAddress,
-                        name: $this->campaign->fromName,
-                    )
-                    ->to(
-                        address: $this->recipient->reachableAt,
-                        name: $this->recipient->name,
-                    )
-            );
+                        name: $this->campaign->fromName !== '' ? $this->campaign->fromName : null,
+                    );
+                }
+            });
 
             $campaigns->campaign($this->campaign)->markProcessed($this->recipient);
         } catch (Throwable $e) {
