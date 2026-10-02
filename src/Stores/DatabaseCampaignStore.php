@@ -24,8 +24,11 @@ use RoundlyConsulting\Campaigns\Models\CampaignRecord;
  * guard the same miss raised `invalid input syntax for type uuid` on Postgres instead of
  * returning null.
  *
- * Writes include soft-deleted rows: the `uuid` columns are unique, so an upsert that skipped
- * a trashed row would try to insert a duplicate.
+ * Recipients are keyed by (campaign, uuid), exactly like the in-memory store: one recipient
+ * saved under two campaigns is two rows, never one moved between them.
+ *
+ * Writes include soft-deleted rows: the keys are unique, so an upsert that skipped a trashed
+ * row would try to insert a duplicate.
  */
 final class DatabaseCampaignStore implements CampaignStore
 {
@@ -76,9 +79,8 @@ final class DatabaseCampaignStore implements CampaignStore
     {
         foreach ($recipients as $recipient) {
             CampaignRecipientRecord::withTrashed()->updateOrCreate(
-                ['uuid' => $recipient->uuid],
+                ['campaign_uuid' => $campaignUuid, 'uuid' => $recipient->uuid],
                 [
-                    'campaign_uuid' => $campaignUuid,
                     'name' => $recipient->name,
                     'reachable_at' => $recipient->reachableAt,
                     'has_been_processed' => $recipient->hasBeenProcessed,

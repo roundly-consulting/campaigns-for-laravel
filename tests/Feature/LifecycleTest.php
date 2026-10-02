@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Event;
+use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
 use RoundlyConsulting\Campaigns\Events\CampaignCompleted;
@@ -90,4 +91,17 @@ it('refuses to mark a recipient of another campaign', function (string $store): 
 
     expect(fn () => Campaigns::campaign($a)->markProcessed($recipientOfB))->toThrow(RecipientNotFound::class)
         ->and(Campaigns::campaign($b)->recipient($recipientOfB)->hasBeenProcessed)->toBeFalse();
+})->with('stores');
+
+it('keeps an unscoped recipient handed to two campaigns in both', function (string $store): void {
+    useStore($store);
+
+    $shared = new CampaignRecipient(uuid: '00000000-0000-4000-8000-00000000a001', name: 'John', reachableAt: 'john@doe.tld');
+
+    $a = Campaigns::prepare(new Campaign(uuid: '00000000-0000-4000-8000-c00000000001', subject: 'A', content: 'Body', fromName: 'Shop', fromAddress: 'shop@shop.tld'), [$shared]);
+    $b = Campaigns::prepare(new Campaign(uuid: '00000000-0000-4000-8000-c00000000002', subject: 'B', content: 'Body', fromName: 'Shop', fromAddress: 'shop@shop.tld'), [$shared]);
+
+    expect(Campaigns::campaign($a)->recipients())->toHaveCount(1)
+        ->and(Campaigns::campaign($b)->recipients())->toHaveCount(1)
+        ->and(Campaigns::campaign($a)->recipient($shared->uuid)->campaignUuid)->toBe($a->uuid);
 })->with('stores');

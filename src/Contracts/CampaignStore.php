@@ -34,7 +34,8 @@ interface CampaignStore
     public function save(Campaign $campaign): void;
 
     /**
-     * Insert or update each recipient by its uuid, under the given campaign.
+     * Insert or update each recipient under the given campaign, keyed by (campaign, uuid): the
+     * same recipient saved under two campaigns is kept in both, never moved.
      *
      * @param  list<CampaignRecipient>  $recipients
      */

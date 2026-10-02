@@ -144,3 +144,16 @@ it('finds a recipient only within its own campaign', function (string $store): v
         ->and($store->findRecipient('00000000-0000-4000-8000-c00000000001', '00000000-0000-4000-8000-00000000b001'))->toBeNull()
         ->and($store->findRecipient('00000000-0000-4000-8000-c00000000001', 'missing'))->toBeNull();
 })->with('stores');
+
+it('keeps one recipient saved under two campaigns in both', function (string $store): void {
+    $store = new $store;
+    $recipient = storeRecipient('00000000-0000-4000-8000-00000000a001');
+
+    $store->saveRecipients('00000000-0000-4000-8000-c00000000001', [$recipient]);
+    $store->saveRecipients('00000000-0000-4000-8000-c00000000002', [$recipient]);
+
+    expect($store->recipients('00000000-0000-4000-8000-c00000000001'))->toHaveCount(1)
+        ->and($store->recipients('00000000-0000-4000-8000-c00000000002'))->toHaveCount(1)
+        ->and($store->findRecipient('00000000-0000-4000-8000-c00000000001', $recipient->uuid)->campaignUuid)
+        ->toBe('00000000-0000-4000-8000-c00000000001');
+})->with('stores');

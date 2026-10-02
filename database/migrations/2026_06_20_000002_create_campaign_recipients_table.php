@@ -12,7 +12,9 @@ return new class extends Migration
     {
         Schema::create('campaign_recipients', function (Blueprint $table): void {
             $table->id();
-            $table->uuid('uuid')->unique();
+            // A recipient uuid is unique within its campaign: the same recipient may be
+            // added to several campaigns, and each keeps its own row and delivery state.
+            $table->uuid('uuid');
             $table->uuid('campaign_uuid')->index();
             $table->string('name');
             $table->string('reachable_at');
@@ -21,6 +23,8 @@ return new class extends Migration
             $table->text('error_message')->nullable();
             $table->timestamps();
             $table->softDeletes();
+
+            $table->unique(['campaign_uuid', 'uuid']);
         });
     }
 };
