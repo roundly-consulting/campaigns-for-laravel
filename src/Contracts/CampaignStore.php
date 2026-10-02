@@ -7,6 +7,7 @@ namespace RoundlyConsulting\Campaigns\Contracts;
 use Illuminate\Support\Collection;
 use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
+use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
 
 /**
  * Where campaigns and their recipients are kept. Persistence only: the lifecycle (batches,
@@ -39,6 +40,14 @@ interface CampaignStore
      * Insert or update the campaign by its uuid.
      */
     public function save(Campaign $campaign): void;
+
+    /**
+     * Save the campaign only while its stored status is still `$expected` — the atomic
+     * compare-and-set every status transition goes through, so of two processes racing one
+     * transition (a double-clicked start, a cancel against the batch finishing) exactly one
+     * wins. Returns whether it was written; false for a campaign the store does not hold.
+     */
+    public function saveIfStatus(Campaign $campaign, CampaignStatus $expected): bool;
 
     /**
      * Insert or update each recipient under the given campaign, keyed by (campaign, uuid): the

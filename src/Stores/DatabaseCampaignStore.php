@@ -12,6 +12,7 @@ use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignProgress;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Contracts\CampaignStore;
+use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
 use RoundlyConsulting\Campaigns\Models\CampaignRecipientRecord;
 use RoundlyConsulting\Campaigns\Models\CampaignRecord;
 
@@ -78,6 +79,19 @@ final class DatabaseCampaignStore implements CampaignStore
     public function save(Campaign $campaign): void
     {
         CampaignRecord::withTrashed()->updateOrCreate(['uuid' => $campaign->uuid], $this->attributes($campaign));
+    }
+
+    public function saveIfStatus(Campaign $campaign, CampaignStatus $expected): bool
+    {
+        if (! Str::isUuid($campaign->uuid)) {
+            return false;
+        }
+
+        // One conditional UPDATE: the status check and the write are atomic in the engine.
+        return CampaignRecord::query()
+            ->where('uuid', $campaign->uuid)
+            ->where('status', $expected)
+            ->update($this->attributes($campaign)) === 1;
     }
 
     public function saveRecipients(string $campaignUuid, array $recipients): void

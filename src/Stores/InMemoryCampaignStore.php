@@ -8,6 +8,7 @@ use Illuminate\Support\Collection;
 use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Contracts\CampaignStore;
+use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
 
 /**
  * Keeps campaigns in this process's memory — the default store. It needs no database and
@@ -50,6 +51,17 @@ final class InMemoryCampaignStore implements CampaignStore
     public function save(Campaign $campaign): void
     {
         $this->campaigns[$campaign->uuid] = clone $campaign;
+    }
+
+    public function saveIfStatus(Campaign $campaign, CampaignStatus $expected): bool
+    {
+        if (($this->campaigns[$campaign->uuid] ?? null)?->progress->status !== $expected) {
+            return false;
+        }
+
+        $this->save($campaign);
+
+        return true;
     }
 
     public function saveRecipients(string $campaignUuid, array $recipients): void

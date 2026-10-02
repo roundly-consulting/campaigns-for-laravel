@@ -13,6 +13,7 @@ use RoundlyConsulting\Campaigns\Events\CampaignCompleted;
 use RoundlyConsulting\Campaigns\Events\CampaignFailed;
 use RoundlyConsulting\Campaigns\Events\CampaignPrepared;
 use RoundlyConsulting\Campaigns\Events\CampaignStarted;
+use RoundlyConsulting\Campaigns\Exceptions\InvalidCampaignTransition;
 use RoundlyConsulting\Campaigns\Support\CampaignBatches;
 
 /**
@@ -20,7 +21,11 @@ use RoundlyConsulting\Campaigns\Support\CampaignBatches;
  *
  * A terminal status (Completed, Failed, Canceled) is final: no later transition leaves it,
  * so a cancelled campaign stays cancelled when its batch finishes. A transition to the
- * current status is a no-op (no event). The batch counters are copied onto the progress.
+ * current status is a no-op (no event). The live counters are copied onto the progress.
+ *
+ * The write is a compare-and-set on the status that was read (CampaignStore::saveIfStatus()),
+ * so two processes racing the same campaign can never both transition it: the loser fires no
+ * event and gets the winner's campaign back (or InvalidCampaignTransition with `$from`).
  *
  * When the store no longer holds the campaign — a deleted row, or the in-memory store in a
  * queue worker's process — the transition applies to the given snapshot: its event still
@@ -33,11 +38,22 @@ final readonly class ChangeCampaignStatusAction
         private CampaignBatches $batches,
     ) {}
 
-    public function execute(Campaign $campaign, CampaignStatus $status): Campaign
+    /**
+     * @param  CampaignStatus|null  $from  the status the transition must start from; when given,
+     *                                     a campaign in any other status — or one another process
+     *                                     moved first — throws instead of becoming a no-op
+     *
+     * @throws InvalidCampaignTransition when `$from` is given and the campaign is not in it
+     */
+    public function execute(Campaign $campaign, CampaignStatus $status, ?CampaignStatus $from = null): Campaign
     {
         $stored = $this->store->find($campaign->uuid);
         $target = $stored ?? $campaign;
         $current = $target->progress->status;
+
+        if ($from !== null && $current !== $from) {
+            throw InvalidCampaignTransition::cannotMove($target, $status, $from);
+        }
 
         if ($current === $status || $current->isTerminal()) {
             return $target;
@@ -55,8 +71,16 @@ final readonly class ChangeCampaignStatusAction
 
         $this->batches->syncProgress($target);
 
-        if ($stored !== null) {
-            $this->store->save($target);
+        // Compare-and-set on the status read above: when another process moved the campaign
+        // in between, its transition (and its event) stands and this one is dropped.
+        if ($stored !== null && ! $this->store->saveIfStatus($target, $current)) {
+            $winner = $this->store->find($campaign->uuid) ?? $target;
+
+            if ($from !== null) {
+                throw InvalidCampaignTransition::cannotMove($winner, $status, $from);
+            }
+
+            return $winner;
         }
 
         $event = match ($status) {

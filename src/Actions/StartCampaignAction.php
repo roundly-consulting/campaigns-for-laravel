@@ -19,7 +19,8 @@ use RoundlyConsulting\Campaigns\Support\CampaignBatches;
  * `campaigns.process-recipient-job` per recipient into its batch.
  *
  * Only a Pending campaign starts. Starting one that is already sending (or finished) throws
- * instead of queueing every recipient a second time.
+ * instead of queueing every recipient a second time — also when two processes start it at
+ * once: the status move is atomic, and only its winner queues the recipients.
  */
 final readonly class StartCampaignAction
 {
@@ -43,7 +44,10 @@ final readonly class StartCampaignAction
         }
 
         // Processing first: on a sync queue the jobs run — and the batch finishes — inside add().
-        $campaign = $this->changeStatus->execute($campaign, CampaignStatus::Processing);
+        // `from: Pending` makes the move a compare-and-set, so of two starts racing past the
+        // check above only one gets here; the other throws instead of queueing every recipient
+        // a second time.
+        $campaign = $this->changeStatus->execute($campaign, CampaignStatus::Processing, from: CampaignStatus::Pending);
 
         /** @var class-string<ProcessesCampaignRecipient> $job */
         $job = config('campaigns.process-recipient-job', SendCampaignEmail::class);

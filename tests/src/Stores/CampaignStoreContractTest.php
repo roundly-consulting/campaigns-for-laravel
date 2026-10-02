@@ -169,3 +169,20 @@ it('inserts a new campaign and refuses one whose uuid is taken', function (strin
         ->and($store->find('00000000-0000-4000-8000-c00000000001')->subject)->toBe('Subject')
         ->and($store->all())->toHaveCount(1);
 })->with('stores');
+
+it('saves a campaign only while its stored status is the expected one', function (string $store): void {
+    $store = new $store;
+    $store->save(storeCampaign());
+
+    $processing = storeCampaign();
+    $processing->progress->status = CampaignStatus::Processing;
+
+    $canceled = storeCampaign();
+    $canceled->progress->status = CampaignStatus::Canceled;
+
+    expect($store->saveIfStatus($processing, CampaignStatus::Created))->toBeTrue()
+        ->and($store->saveIfStatus($canceled, CampaignStatus::Created))->toBeFalse()
+        ->and($store->find('00000000-0000-4000-8000-c00000000001')->progress->status)->toBe(CampaignStatus::Processing)
+        ->and($store->saveIfStatus(storeCampaign('00000000-0000-4000-8000-c0000000ffff'), CampaignStatus::Created))->toBeFalse()
+        ->and($store->find('00000000-0000-4000-8000-c0000000ffff'))->toBeNull();
+})->with('stores');
