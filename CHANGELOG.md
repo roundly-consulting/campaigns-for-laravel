@@ -12,7 +12,8 @@ Initial public release.
 
 - Send a campaign to many recipients on Laravel queues and job batches with the fluent
   `Campaigns::create()->from()->to()->dispatch()` builder.
-- Live progress (`percentage()`, `remaining()`, `isComplete()`) and `Campaigns::cancel()`.
+- Live progress (`sent`, `failed`, `percentage()`, `remaining()`, `isComplete()`) and
+  `Campaigns::cancel()`.
 - Swappable per-recipient delivery job: `SendCampaignEmail` by default, `SendCampaignNotification`
   for any Laravel notification channel, or your own job for SMS or push.
 - Storage-agnostic stores: in-memory out of the box, or an opt-in database-backed store.
@@ -32,6 +33,9 @@ Initial public release.
   `assertCancelled`, `assertRecipientProcessed`, `assertRecipientFailed` and an
   `assertNothing*` for each.
 - A recipients listing on the storage contract, and `CampaignRecipient::$campaignUuid`.
+- `CampaignProgress::$failed`, and `insert()`, `saveIfStatus()` and `countRecipients()` on the
+  storage contract.
+- `CampaignAlreadyExists`, thrown when a campaign is prepared under a uuid that is taken.
 
 ### Changed
 
@@ -46,6 +50,11 @@ Initial public release.
   `$campaigns->campaign($campaign)->markProcessed()` / `->markFailed()`.
 - `CampaignPrepared` fires once the recipients are stored.
 - `campaigns:cancel` warns instead of reporting success for a campaign that already ended.
+- Per-recipient jobs run on `sending-queue`; the `batch-queue` config key, the
+  `DefaultBatchQueue` option and `CampaignSettings::batchQueue()` are removed (a batch pushes
+  all of its jobs onto one queue, so it had nothing of its own to apply to).
+- A campaign ends `Failed` only when not one delivery got through; otherwise it completes.
+- The in-memory store lives for one request or queued job (bound scoped).
 
 ### Fixed
 
@@ -56,3 +65,19 @@ Initial public release.
 - Adding another campaign's recipient no longer moves it out of that campaign on the
   database store.
 - A recipient of one campaign can no longer be marked processed or failed through another.
+- A campaign without a sender no longer fails every email: it sends from the mailer's
+  global `mail.from`.
+- Two processes starting the same campaign at once no longer send it twice.
+- `sending-queue` (and the `DefaultSendingQueue` option) now decides the queue the delivery
+  jobs run on; they used to land on the batch queue.
+- One failing delivery job no longer ends the campaign as `Failed` while the rest keep
+  sending, and the campaign can still be cancelled.
+- A campaign with no recipients (or every owner filtered out) completes instead of staying
+  `Processing` forever.
+- Failed deliveries are no longer counted as sent.
+- Preparing a campaign under an existing uuid no longer overwrites and re-sends it.
+- The database store keeps a recipient added to two campaigns in both, like the in-memory
+  store.
+- `->to()` no longer adds the same address twice.
+- The in-memory store no longer grows (and leaks campaigns between jobs) for a queue
+  worker's lifetime.
