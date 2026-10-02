@@ -51,7 +51,10 @@ final class CampaignsServiceProvider extends PackageServiceProvider
     {
         parent::register();
 
-        $this->app->singleton(CampaignStore::class, function (): CampaignStore {
+        // Scoped, not a singleton: Laravel drops it between queued jobs (and Octane between
+        // requests), so the in-memory store holds one request's or job's campaigns and never
+        // grows — or leaks campaigns into the next one — for a worker's lifetime.
+        $this->app->scoped(CampaignStore::class, function (): CampaignStore {
             /** @var class-string<CampaignStore> $store */
             $store = self::configuredString('campaigns.store', InMemoryCampaignStore::class);
 

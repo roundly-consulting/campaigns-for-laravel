@@ -12,9 +12,11 @@ use RoundlyConsulting\Campaigns\DataTransferObjects\RecipientCounts;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
 
 /**
- * Keeps campaigns in this process's memory — the default store. It needs no database and
- * is ideal for tests and create-and-send flows; nothing survives the process, so a queue
- * worker in another process starts empty (deliveries and events still happen there).
+ * Keeps campaigns in memory for the current request, console command or queued job — the
+ * default store. It needs no tables of its own and suits tests and create-and-send flows.
+ * Nothing survives the request: the container binds it scoped, so the next request or job (and
+ * a queue worker in another process) starts empty — deliveries and events still happen there,
+ * but their progress is not tracked here.
  */
 final class InMemoryCampaignStore implements CampaignStore
 {

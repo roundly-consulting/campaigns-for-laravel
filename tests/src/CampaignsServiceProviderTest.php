@@ -10,6 +10,7 @@ use RoundlyConsulting\Campaigns\CampaignsServiceProvider;
 use RoundlyConsulting\Campaigns\Commands\CampaignsCancelCommand;
 use RoundlyConsulting\Campaigns\Commands\CampaignsListCommand;
 use RoundlyConsulting\Campaigns\Contracts\CampaignStore;
+use RoundlyConsulting\Campaigns\Facades\Campaigns;
 use RoundlyConsulting\Campaigns\Stores\DatabaseCampaignStore;
 use RoundlyConsulting\Campaigns\Stores\InMemoryCampaignStore;
 
@@ -24,6 +25,20 @@ it('binds the in-memory store by default', function (): void {
         ->and(resolve(CampaignStore::class))->toBe(resolve(CampaignStore::class))
         ->and(resolve(CampaignManager::class))->toBeInstanceOf(CampaignManager::class)
         ->and(resolve(CampaignManager::class))->toBe(resolve(CampaignManager::class));
+});
+
+it('starts every request or queued job with a fresh in-memory store', function (): void {
+    fakeBus();
+
+    $campaign = Campaigns::create('Subject', 'Body')->to('a@a.tld')->prepare();
+    $store = resolve(CampaignStore::class);
+
+    // What Laravel does between two queued jobs (and Octane between two requests).
+    app()->forgetScopedInstances();
+
+    expect(resolve(CampaignStore::class))->not->toBe($store)
+        ->and(Campaigns::find($campaign->uuid))->toBeNull()
+        ->and(Campaigns::all())->toHaveCount(0);
 });
 
 it('binds the database store when it is configured', function (): void {
