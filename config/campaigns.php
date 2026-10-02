@@ -38,12 +38,9 @@ return [
     ],
 
     /*
-     * Queue used for the campaign batch.
-     */
-    'batch-queue' => env('CAMPAIGNS_BATCH_QUEUE', 'default'),
-
-    /*
-     * Queue used for each per-recipient processing job.
+     * Queue every per-recipient delivery job runs on. A campaign's job batch is
+     * opened on it when the campaign is prepared, and a batch pushes all of its
+     * jobs onto that one queue. Seeds the DefaultSendingQueue option.
      */
     'sending-queue' => env('CAMPAIGNS_SENDING_QUEUE', 'default'),
 

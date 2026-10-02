@@ -7,8 +7,8 @@ namespace RoundlyConsulting\Campaigns\Options;
 use RoundlyConsulting\Options\BaseOption;
 
 /**
- * Queue each per-recipient processing job is dispatched on. Falls back to the
- * campaigns.sending-queue config value when unset.
+ * Queue every per-recipient delivery job runs on: a campaign's job batch is opened on it when
+ * the campaign is prepared. Falls back to the campaigns.sending-queue config value when unset.
  */
 final class DefaultSendingQueue extends BaseOption
 {

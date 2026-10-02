@@ -59,7 +59,9 @@ final readonly class PrepareCampaignAction
         $snapshot = clone $campaign;
 
         $batch = Bus::batch([])
-            ->onQueue($this->settings->batchQueue())
+            // A batch pushes every job it is given onto its own queue (a job's `$queue` is
+            // overridden), so the batch is opened on the sending queue the deliveries run on.
+            ->onQueue($this->settings->sendingQueue())
             ->finally(static fn () => app(ChangeCampaignStatusAction::class)->execute($snapshot, CampaignStatus::Completed))
             ->catch(static fn () => app(ChangeCampaignStatusAction::class)->execute($snapshot, CampaignStatus::Failed))
             ->allowFailures()

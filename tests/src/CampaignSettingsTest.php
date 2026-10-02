@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use RoundlyConsulting\Campaigns\Facades\Campaigns;
-use RoundlyConsulting\Campaigns\Options\DefaultBatchQueue;
 use RoundlyConsulting\Campaigns\Options\DefaultChannel;
 use RoundlyConsulting\Campaigns\Options\DefaultFromAddress;
 use RoundlyConsulting\Campaigns\Options\DefaultFromName;
@@ -26,18 +25,17 @@ it('each option casts and defaults from config', function (): void {
     expect((new DefaultFromName)->castAs())->toBe('string')
         ->and((new DefaultFromAddress)->castAs())->toBe('string')
         ->and((new DefaultChannel)->castAs())->toBe('string')
-        ->and((new DefaultBatchQueue)->castAs())->toBe('string')
         ->and((new DefaultSendingQueue)->castAs())->toBe('string')
         ->and((new OnlyVerifiedRecipients)->castAs())->toBe('boolean')
         ->and((new DefaultRecipientContactType)->castAs())->toContain(ContactType::class);
 
     config()->set('campaigns.from-address', 'seed@acme.test');
-    config()->set('campaigns.batch-queue', 'seed-batch');
+    config()->set('campaigns.sending-queue', 'seed-sending');
     config()->set('campaigns.recipients.only-verified', true);
     config()->set('campaigns.recipients.contact-type', 'phone');
 
     expect((new DefaultFromAddress)->default())->toBe('seed@acme.test')
-        ->and((new DefaultBatchQueue)->default())->toBe('seed-batch')
+        ->and((new DefaultSendingQueue)->default())->toBe('seed-sending')
         ->and((new OnlyVerifiedRecipients)->default())->toBeTrue()
         ->and((new DefaultRecipientContactType)->default())->toBe(ContactType::Phone);
 });
@@ -52,7 +50,6 @@ it('reads config defaults when no option is set', function (): void {
     expect(settings()->fromAddress())->toBe('')
         ->and(settings()->fromName())->toBe('')
         ->and(settings()->notificationChannel())->toBe('mail')
-        ->and(settings()->batchQueue())->toBe('default')
         ->and(settings()->sendingQueue())->toBe('default')
         ->and(settings()->onlyVerifiedRecipients())->toBeFalse()
         ->and(settings()->defaultRecipientContactType())->toBe(ContactType::Email);
@@ -61,14 +58,12 @@ it('reads config defaults when no option is set', function (): void {
 it('returns the stored option value once set', function (): void {
     Options::set(DefaultFromAddress::class, 'news@acme.test');
     Options::set(DefaultChannel::class, 'vonage');
-    Options::set(DefaultBatchQueue::class, 'blasts');
     Options::set(DefaultSendingQueue::class, 'sends');
     Options::set(OnlyVerifiedRecipients::class, true);
     Options::set(DefaultRecipientContactType::class, ContactType::Phone);
 
     expect(settings()->fromAddress())->toBe('news@acme.test')
         ->and(settings()->notificationChannel())->toBe('vonage')
-        ->and(settings()->batchQueue())->toBe('blasts')
         ->and(settings()->sendingQueue())->toBe('sends')
         ->and(settings()->onlyVerifiedRecipients())->toBeTrue()
         ->and(settings()->defaultRecipientContactType())->toBe(ContactType::Phone);

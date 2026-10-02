@@ -93,10 +93,10 @@ it('pages all campaigns in creation order', function (string $store): void {
 })->with('stores');
 
 it('reads the send settings', function (): void {
-    config()->set('campaigns.batch-queue', 'blasts');
+    config()->set('campaigns.sending-queue', 'blasts');
 
     expect(Campaigns::settings())->toBeInstanceOf(CampaignSettings::class)
-        ->and(Campaigns::settings()->batchQueue())->toBe('blasts');
+        ->and(Campaigns::settings()->sendingQueue())->toBe('blasts');
 });
 
 describe('campaign handle', function (): void {

@@ -107,7 +107,6 @@ it('contributes a campaigns section to about', function (string $expected): void
     'Recipient job',
     'From name',
     'From address',
-    'Batch queue',
     'Sending queue',
     'Notification',
     'Notification channel',
@@ -126,14 +125,12 @@ it('reports the configured store and recipient job by base name in about', funct
 it('reports the sender identity and queues by presence, never their values', function (): void {
     config()->set('campaigns.from-name', 'Acme Billing');
     config()->set('campaigns.from-address', 'billing@acme.test');
-    config()->set('campaigns.batch-queue', 'acme-batches');
     config()->set('campaigns.sending-queue', 'acme-sending');
     config()->set('campaigns.notification', 'App\\Notifications\\AcmeBlast');
 
     $this->artisan('about --only=campaigns')
         ->doesntExpectOutputToContain('Acme Billing')
         ->doesntExpectOutputToContain('billing@acme.test')
-        ->doesntExpectOutputToContain('acme-batches')
         ->doesntExpectOutputToContain('acme-sending')
         ->doesntExpectOutputToContain('AcmeBlast')
         ->expectsOutputToContain('SET')

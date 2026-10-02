@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Campaigns\Support;
 
-use RoundlyConsulting\Campaigns\Options\DefaultBatchQueue;
 use RoundlyConsulting\Campaigns\Options\DefaultChannel;
 use RoundlyConsulting\Campaigns\Options\DefaultFromAddress;
 use RoundlyConsulting\Campaigns\Options\DefaultFromName;
@@ -35,11 +34,6 @@ final class CampaignSettings
     public function notificationChannel(): string
     {
         return (string) Options::get(DefaultChannel::class);
-    }
-
-    public function batchQueue(): string
-    {
-        return (string) Options::get(DefaultBatchQueue::class);
     }
 
     public function sendingQueue(): string

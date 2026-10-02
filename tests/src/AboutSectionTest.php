@@ -21,7 +21,6 @@ declare(strict_types=1);
 it('renders the campaigns section without leaking the sender identity or queues', function (): void {
     config()->set('campaigns.from-name', 'Acme Internal Comms');
     config()->set('campaigns.from-address', 'noreply@acme-internal.example');
-    config()->set('campaigns.batch-queue', 'acme-batch-priority');
     config()->set('campaigns.sending-queue', 'acme-sending-bulk');
     config()->set('campaigns.notification', 'App\\Notifications\\SecretInternalBlast');
     config()->set('campaigns.recipients.only-verified', true);
@@ -33,7 +32,6 @@ it('renders the campaigns section without leaking the sender identity or queues'
             'noreply@acme-internal.example',
             'acme-internal.example',
             // The host's queue topology is its infrastructure, not campaigns' business.
-            'acme-batch-priority',
             'acme-sending-bulk',
         ],
         mustRender: [
