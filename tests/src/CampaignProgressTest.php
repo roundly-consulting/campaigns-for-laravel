@@ -59,6 +59,7 @@ it('serialises to an array', function (): void {
     expect($progress->toArray())->toBe([
         'status' => 'Processing',
         'sent' => 5,
+        'failed' => 0,
         'pending' => 5,
         'total' => 10,
         'remaining' => 5,

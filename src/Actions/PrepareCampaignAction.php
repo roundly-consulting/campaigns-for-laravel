@@ -62,8 +62,10 @@ final readonly class PrepareCampaignAction
             // A batch pushes every job it is given onto its own queue (a job's `$queue` is
             // overridden), so the batch is opened on the sending queue the deliveries run on.
             ->onQueue($this->settings->sendingQueue())
-            ->finally(static fn () => app(ChangeCampaignStatusAction::class)->execute($snapshot, CampaignStatus::Completed))
-            ->catch(static fn () => app(ChangeCampaignStatusAction::class)->execute($snapshot, CampaignStatus::Failed))
+            // Once every job ran — failed ones included — the campaign ends Completed (or Failed
+            // when nothing got through). A failing job alone ends nothing: the others keep
+            // sending and the campaign stays cancellable.
+            ->finally(static fn () => app(FinishCampaignAction::class)->execute($snapshot))
             ->allowFailures()
             ->dispatch();
 

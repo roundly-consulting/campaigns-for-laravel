@@ -61,8 +61,8 @@ it('refuses to start an unknown campaign', function (): void {
 it('cancels a campaign by uuid or value object', function (string $store): void {
     useStore($store);
 
-    $first = Campaigns::create('One', 'Body')->dispatch();
-    $second = Campaigns::create('Two', 'Body')->dispatch();
+    $first = Campaigns::create('One', 'Body')->to('a@a.tld')->dispatch();
+    $second = Campaigns::create('Two', 'Body')->to('b@b.tld')->dispatch();
 
     expect(Campaigns::cancel($first->uuid)->progress->status)->toBe(CampaignStatus::Canceled)
         ->and(Campaigns::cancel($second)->progress->status)->toBe(CampaignStatus::Canceled)

@@ -9,6 +9,7 @@ use Illuminate\Support\Collection;
 use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Contracts\CampaignStore;
+use RoundlyConsulting\Campaigns\DataTransferObjects\RecipientCounts;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
 
 /**
@@ -73,5 +74,10 @@ final class InterleavingStore implements CampaignStore
     public function findRecipient(string $campaignUuid, string $recipientUuid): ?CampaignRecipient
     {
         return $this->inner->findRecipient($campaignUuid, $recipientUuid);
+    }
+
+    public function countRecipients(string $campaignUuid): RecipientCounts
+    {
+        return $this->inner->countRecipients($campaignUuid);
     }
 }

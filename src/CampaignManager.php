@@ -148,7 +148,7 @@ class CampaignManager
 
     /**
      * Counters are persisted at each status change; while a campaign is Pending or
-     * Processing its batch holds the live numbers.
+     * Processing they are read live from its recipients and its batch.
      */
     private function live(Campaign $campaign): Campaign
     {
@@ -156,6 +156,6 @@ class CampaignManager
             return $campaign;
         }
 
-        return $this->container->make(CampaignBatches::class)->syncProgress($campaign);
+        return $this->container->make(CampaignBatches::class)->syncProgress($campaign, $this->store());
     }
 }

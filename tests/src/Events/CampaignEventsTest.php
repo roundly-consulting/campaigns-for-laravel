@@ -34,7 +34,7 @@ it('dispatches lifecycle events on real transitions', function (string $store): 
     useStore($store);
     Event::fake();
 
-    Campaigns::prepare($this->campaign);
+    Campaigns::prepare($this->campaign, [new CampaignRecipient(uuid: '00000000-0000-4000-8000-00000000a001', name: 'Jane', reachableAt: 'jane@doe.tld')]);
     Event::assertDispatched(CampaignPrepared::class, fn (CampaignPrepared $event): bool => $event->campaign->progress->status === CampaignStatus::Pending);
 
     Campaigns::start($this->campaign->uuid);
@@ -105,20 +105,48 @@ it('completes the campaign and dispatches completed on the batch finally callbac
         ->endedAt->not->toBeNull();
 })->with('stores');
 
-it('fails the campaign and dispatches failed on the batch catch callback', function (string $store): void {
+it('fails the campaign when its batch finishes with no delivery through', function (string $store): void {
     useStore($store);
 
-    Campaigns::prepare($this->campaign);
-    $batch = Campaigns::campaign($this->campaign->uuid)->batch();
+    $campaign = Campaigns::prepare($this->campaign, [new CampaignRecipient(uuid: '00000000-0000-4000-8000-00000000a001', name: 'Jane', reachableAt: 'jane@doe.tld')]);
+    Campaigns::start($campaign);
+    Campaigns::campaign($campaign)->markFailed(Campaigns::campaign($campaign)->recipient('00000000-0000-4000-8000-00000000a001'), 'bounced');
 
     Event::fake();
 
-    finishBatch($batch, 'catch');
+    finishBatch(Campaigns::campaign($campaign)->batch());
 
     Event::assertDispatched(CampaignFailed::class);
+    Event::assertNotDispatched(CampaignCompleted::class);
 
-    expect(Campaigns::find($this->campaign->uuid))
-        ->progress->status->toBe(CampaignStatus::Failed);
+    expect(Campaigns::find($this->campaign->uuid)->progress)
+        ->status->toBe(CampaignStatus::Failed)
+        ->failed->toBe(1)
+        ->sent->toBe(0);
+})->with('stores');
+
+it('completes the campaign when its batch finishes with some deliveries through', function (string $store): void {
+    useStore($store);
+
+    $campaign = Campaigns::prepare($this->campaign, [
+        new CampaignRecipient(uuid: '00000000-0000-4000-8000-00000000a001', name: 'Jane', reachableAt: 'jane@doe.tld'),
+        new CampaignRecipient(uuid: '00000000-0000-4000-8000-00000000a002', name: 'John', reachableAt: 'john@doe.tld'),
+    ]);
+    Campaigns::start($campaign);
+    Campaigns::campaign($campaign)->markFailed(Campaigns::campaign($campaign)->recipient('00000000-0000-4000-8000-00000000a001'), 'bounced');
+    Campaigns::campaign($campaign)->markProcessed(Campaigns::campaign($campaign)->recipient('00000000-0000-4000-8000-00000000a002'));
+
+    Event::fake();
+
+    finishBatch(Campaigns::campaign($campaign)->batch());
+
+    Event::assertDispatched(CampaignCompleted::class);
+
+    expect(Campaigns::find($this->campaign->uuid)->progress)
+        ->status->toBe(CampaignStatus::Completed)
+        ->sent->toBe(1)
+        ->failed->toBe(1)
+        ->percentage()->toBe(50.0);
 })->with('stores');
 
 it('dispatches recipient events with the correct payload', function (): void {

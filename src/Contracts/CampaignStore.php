@@ -7,6 +7,7 @@ namespace RoundlyConsulting\Campaigns\Contracts;
 use Illuminate\Support\Collection;
 use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
+use RoundlyConsulting\Campaigns\DataTransferObjects\RecipientCounts;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
 
 /**
@@ -68,4 +69,9 @@ interface CampaignStore
      * A recipient of THIS campaign; a recipient of any other campaign reads as null.
      */
     public function findRecipient(string $campaignUuid, string $recipientUuid): ?CampaignRecipient;
+
+    /**
+     * The campaign's recipients counted by outcome — what its progress is built from.
+     */
+    public function countRecipients(string $campaignUuid): RecipientCounts;
 }

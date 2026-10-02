@@ -186,3 +186,23 @@ it('saves a campaign only while its stored status is the expected one', function
         ->and($store->saveIfStatus(storeCampaign('00000000-0000-4000-8000-c0000000ffff'), CampaignStatus::Created))->toBeFalse()
         ->and($store->find('00000000-0000-4000-8000-c0000000ffff'))->toBeNull();
 })->with('stores');
+
+it('counts a campaign\'s recipients by outcome', function (string $store): void {
+    $store = new $store;
+    $campaign = '00000000-0000-4000-8000-c00000000001';
+
+    $delivered = storeRecipient('00000000-0000-4000-8000-00000000a001');
+    $delivered->hasBeenProcessed = true;
+    $bounced = storeRecipient('00000000-0000-4000-8000-00000000a002');
+    $bounced->errorOccured = true;
+
+    $store->saveRecipients($campaign, [$delivered, $bounced, storeRecipient('00000000-0000-4000-8000-00000000a003')]);
+    $store->saveRecipients('00000000-0000-4000-8000-c00000000002', [storeRecipient('00000000-0000-4000-8000-00000000b001')]);
+
+    expect($store->countRecipients($campaign))
+        ->total->toBe(3)
+        ->processed->toBe(1)
+        ->failed->toBe(1)
+        ->and($store->countRecipients('00000000-0000-4000-8000-c0000000ffff'))
+        ->total->toBe(0);
+})->with('stores');

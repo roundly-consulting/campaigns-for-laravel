@@ -24,6 +24,7 @@ final class CampaignRecordFactory extends Factory
             'from_address' => $this->faker->safeEmail(),
             'status' => CampaignStatus::Created,
             'sent' => 0,
+            'failed' => 0,
             'pending' => 0,
             'total' => 0,
             'batch' => null,

@@ -56,6 +56,7 @@ it('serialises to an array', function (): void {
         ->and($campaign->toArray()['progress'])->toBe([
             'status' => 'Processing',
             'sent' => 1,
+            'failed' => 0,
             'pending' => 1,
             'total' => 2,
             'remaining' => 1,

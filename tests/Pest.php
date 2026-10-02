@@ -41,14 +41,12 @@ function useStore(string $store): void
 }
 
 /**
- * Run the batch's `finally` (or `catch`) callbacks, as the queue does when it finishes.
- *
- * @param  'finally'|'catch'  $which
+ * Run the batch's `finally` callbacks, as the queue does once every job ran.
  */
-function finishBatch(Batch $batch, string $which = 'finally'): void
+function finishBatch(Batch $batch): void
 {
-    foreach ($batch->options[$which] ?? [] as $callback) {
-        $callback($batch, new RuntimeException('boom'));
+    foreach ($batch->options['finally'] ?? [] as $callback) {
+        $callback($batch);
     }
 }
 

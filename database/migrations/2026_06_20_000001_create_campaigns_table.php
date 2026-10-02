@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('from_address');
             $table->string('status')->default('Created')->index();
             $table->unsignedBigInteger('sent')->default(0);
+            $table->unsignedBigInteger('failed')->default(0);
             $table->unsignedBigInteger('pending')->default(0);
             $table->unsignedBigInteger('total')->default(0);
             $table->string('batch')->nullable();

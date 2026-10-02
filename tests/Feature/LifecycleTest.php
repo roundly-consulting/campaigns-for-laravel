@@ -28,7 +28,6 @@ it('keeps a cancelled campaign cancelled when its batch finishes', function (str
     Event::fake([CampaignCompleted::class, CampaignFailed::class]);
 
     // A cancelled batch still runs its `finally` callbacks once the skipped jobs drain.
-    finishBatch(Campaigns::campaign($campaign)->batch(), 'catch');
     finishBatch(Campaigns::campaign($campaign)->batch());
 
     expect(Campaigns::find($campaign->uuid)->progress->status)->toBe(CampaignStatus::Canceled);

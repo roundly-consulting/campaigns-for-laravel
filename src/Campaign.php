@@ -32,7 +32,7 @@ final class Campaign
     }
 
     /**
-     * @return array{uuid: string, subject: string, content: string, fromName: string, fromAddress: string, progress: array{status: string, sent: int, pending: int, total: int, remaining: int, percentage: float}, startedAt: string|null, endedAt: string|null, batch: string|null}
+     * @return array{uuid: string, subject: string, content: string, fromName: string, fromAddress: string, progress: array{status: string, sent: int, failed: int, pending: int, total: int, remaining: int, percentage: float}, startedAt: string|null, endedAt: string|null, batch: string|null}
      */
     public function toArray(): array
     {

@@ -23,7 +23,7 @@ final class CampaignsListCommand extends Command
                 $campaign->subject,
                 "{$campaign->fromName} ({$campaign->fromAddress})",
                 $campaign->progress->status->label(),
-                "{$campaign->progress->percentage()}% ({$campaign->progress->pending} to be sent of {$campaign->progress->total})",
+                "{$campaign->progress->percentage()}% ({$campaign->progress->sent} sent, {$campaign->progress->failed} failed, {$campaign->progress->remaining()} to be sent of {$campaign->progress->total})",
                 $campaign->startedAt?->format('Y-m-d H:i') ?: 'N/A',
                 $campaign->endedAt?->format('Y-m-d H:i') ?: 'N/A',
             ])

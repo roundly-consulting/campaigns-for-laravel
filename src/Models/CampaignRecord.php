@@ -21,6 +21,7 @@ use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
  * @property string $from_address
  * @property CampaignStatus $status
  * @property int $sent
+ * @property int $failed
  * @property int $pending
  * @property int $total
  * @property string|null $batch
@@ -62,6 +63,7 @@ final class CampaignRecord extends Model
         return [
             'status' => CampaignStatus::class,
             'sent' => 'integer',
+            'failed' => 'integer',
             'pending' => 'integer',
             'total' => 'integer',
             'started_at' => 'datetime',

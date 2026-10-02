@@ -16,7 +16,8 @@ use RoundlyConsulting\Campaigns\Support\CampaignBatches;
 
 /**
  * Start sending a prepared campaign: move it to Processing (CampaignStarted) and queue one
- * `campaigns.process-recipient-job` per recipient into its batch.
+ * `campaigns.process-recipient-job` per recipient into its batch. A campaign with no
+ * recipients completes at once (CampaignCompleted).
  *
  * Only a Pending campaign starts. Starting one that is already sending (or finished) throws
  * instead of queueing every recipient a second time — also when two processes start it at
@@ -27,6 +28,7 @@ final readonly class StartCampaignAction
     public function __construct(
         private CampaignStore $store,
         private ChangeCampaignStatusAction $changeStatus,
+        private FinishCampaignAction $finish,
         private CampaignBatches $batches,
     ) {}
 
@@ -56,9 +58,15 @@ final readonly class StartCampaignAction
             ->map(static fn (CampaignRecipient $recipient): ProcessesCampaignRecipient => new $job($campaign, $recipient))
             ->all();
 
+        // Nobody to send to (none added, or every owner filtered out): an empty batch never
+        // finishes, so the campaign completes here instead of staying Processing forever.
+        if ($jobs === []) {
+            return $this->finish->execute($campaign);
+        }
+
         $this->batches->find($campaign)?->add($jobs);
 
-        return $this->batches->syncProgress($this->reread($campaign));
+        return $this->batches->syncProgress($this->reread($campaign), $this->store);
     }
 
     /**

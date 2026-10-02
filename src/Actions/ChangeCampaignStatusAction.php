@@ -69,7 +69,7 @@ final readonly class ChangeCampaignStatusAction
             $target->endedAt = Carbon::now();
         }
 
-        $this->batches->syncProgress($target);
+        $this->batches->syncProgress($target, $this->store);
 
         // Compare-and-set on the status read above: when another process moved the campaign
         // in between, its transition (and its event) stands and this one is dropped.

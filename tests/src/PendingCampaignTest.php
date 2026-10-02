@@ -84,7 +84,7 @@ it('exposes find and all through the facade', function (): void {
 it('cancels through the facade', function (): void {
     fakeBus();
 
-    $campaign = Campaigns::create('One', 'Body')->dispatch();
+    $campaign = Campaigns::create('One', 'Body')->to('a@a.tld')->dispatch();
 
     Campaigns::cancel($campaign->uuid);
 

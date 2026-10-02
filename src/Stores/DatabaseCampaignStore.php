@@ -12,6 +12,7 @@ use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignProgress;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Contracts\CampaignStore;
+use RoundlyConsulting\Campaigns\DataTransferObjects\RecipientCounts;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
 use RoundlyConsulting\Campaigns\Models\CampaignRecipientRecord;
 use RoundlyConsulting\Campaigns\Models\CampaignRecord;
@@ -142,6 +143,21 @@ final class DatabaseCampaignStore implements CampaignStore
         return $record instanceof CampaignRecipientRecord ? $this->toRecipient($record) : null;
     }
 
+    public function countRecipients(string $campaignUuid): RecipientCounts
+    {
+        if (! Str::isUuid($campaignUuid)) {
+            return new RecipientCounts;
+        }
+
+        $recipients = static fn () => CampaignRecipientRecord::query()->where('campaign_uuid', $campaignUuid);
+
+        return new RecipientCounts(
+            total: $recipients()->count(),
+            processed: $recipients()->where('has_been_processed', true)->count(),
+            failed: $recipients()->where('error_occured', true)->count(),
+        );
+    }
+
     /**
      * @return array<model-property<CampaignRecord>, mixed>
      */
@@ -154,6 +170,7 @@ final class DatabaseCampaignStore implements CampaignStore
             'from_address' => $campaign->fromAddress,
             'status' => $campaign->progress->status,
             'sent' => $campaign->progress->sent,
+            'failed' => $campaign->progress->failed,
             'pending' => $campaign->progress->pending,
             'total' => $campaign->progress->total,
             'batch' => $campaign->batch,
@@ -175,6 +192,7 @@ final class DatabaseCampaignStore implements CampaignStore
                 sent: $record->sent,
                 pending: $record->pending,
                 total: $record->total,
+                failed: $record->failed,
             ),
             startedAt: $record->started_at !== null ? Carbon::instance($record->started_at) : null,
             endedAt: $record->ended_at !== null ? Carbon::instance($record->ended_at) : null,

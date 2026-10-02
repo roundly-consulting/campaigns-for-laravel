@@ -8,7 +8,7 @@ use RoundlyConsulting\Campaigns\Facades\Campaigns;
 it('cancels a campaign by uuid', function (): void {
     fakeBus();
 
-    $campaign = Campaigns::create('Subject', 'Body')->dispatch();
+    $campaign = Campaigns::create('Subject', 'Body')->to('a@a.tld')->dispatch();
 
     $this->artisan('campaigns:cancel', ['uuid' => $campaign->uuid])
         ->expectsOutputToContain('cancelled')
@@ -26,7 +26,7 @@ it('fails with a clear error for an unknown uuid', function (): void {
 it('reports a campaign that already ended without changing it', function (): void {
     fakeBus();
 
-    $campaign = Campaigns::create('Subject', 'Body')->dispatch();
+    $campaign = Campaigns::create('Subject', 'Body')->to('a@a.tld')->dispatch();
     finishBatch(Campaigns::campaign($campaign)->batch());
 
     $this->artisan('campaigns:cancel', ['uuid' => $campaign->uuid])

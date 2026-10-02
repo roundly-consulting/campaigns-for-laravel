@@ -8,6 +8,7 @@ use Illuminate\Support\Collection;
 use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Contracts\CampaignStore;
+use RoundlyConsulting\Campaigns\DataTransferObjects\RecipientCounts;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
 
 /**
@@ -86,5 +87,16 @@ final class InMemoryCampaignStore implements CampaignStore
         $recipient = $this->recipients[$campaignUuid][$recipientUuid] ?? null;
 
         return $recipient === null ? null : clone $recipient;
+    }
+
+    public function countRecipients(string $campaignUuid): RecipientCounts
+    {
+        $recipients = $this->recipients[$campaignUuid] ?? [];
+
+        return new RecipientCounts(
+            total: count($recipients),
+            processed: count(array_filter($recipients, static fn (CampaignRecipient $recipient): bool => $recipient->hasBeenProcessed)),
+            failed: count(array_filter($recipients, static fn (CampaignRecipient $recipient): bool => $recipient->errorOccured)),
+        );
     }
 }
