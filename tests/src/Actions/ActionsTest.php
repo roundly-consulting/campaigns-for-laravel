@@ -93,7 +93,17 @@ it('refuses a recipient job that is not one before starting the campaign (strict
         'Configuration value [campaigns.process-recipient-job] must be a class-string of ['.ProcessesCampaignRecipient::class.']',
     )
         ->and(resolve(CampaignStore::class)->find($campaign->uuid)?->progress->status)->toBe(CampaignStatus::Pending);
-})->with(['blank' => [''], 'unknown class' => ['App\\Jobs\\Missing'], 'not a job' => [stdClass::class]]);
+})->with(['a number' => [5], 'unknown class' => ['App\\Jobs\\Missing'], 'not a job' => [stdClass::class]]);
+
+it('dispatches the packaged email job when the recipient job is blank, which is not set (strict config)', function (): void {
+    config()->set('campaigns.process-recipient-job', '');
+
+    $campaign = app(PrepareCampaignAction::class)->execute($this->campaign, [$this->recipient]);
+    app(StartCampaignAction::class)->execute($campaign);
+
+    expect(resolve(BatchRepository::class)->find($campaign->batch)->added[0])
+        ->toBeInstanceOf(SendCampaignEmail::class);
+});
 
 it('cancels a campaign with CancelCampaignAction', function (): void {
     app(PrepareCampaignAction::class)->execute($this->campaign);

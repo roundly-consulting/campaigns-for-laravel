@@ -65,7 +65,7 @@ it('reports the configured store and switches in the about section', function ()
 
 it('flags a broken setting in about instead of rendering a fallback (strict config)', function (): void {
     config()->set('campaigns.recipients.contact-type', 'emial');
-    config()->set('campaigns.notification-channel', '');
+    config()->set('campaigns.notification-channel', ['mail']);
     config()->set('campaigns.store', stdClass::class);
 
     $this->artisan('about --only=campaigns')

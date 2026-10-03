@@ -57,13 +57,13 @@ it('refuses an unusable store instead of falling back to the in-memory one (stri
         InvalidConfigurationException::class,
         'Configuration value [campaigns.store] must be a class-string of ['.CampaignStore::class.']',
     );
-})->with(['blank' => [''], 'unknown class' => ['App\\Stores\\Missing'], 'not a store' => [stdClass::class]]);
+})->with(['a bool' => [false], 'unknown class' => ['App\\Stores\\Missing'], 'not a store' => [stdClass::class]]);
 
-it('uses the in-memory store when none is configured (strict config)', function (): void {
-    config()->set('campaigns.store', null);
+it('uses the in-memory store when none is configured (strict config)', function (?string $value): void {
+    config()->set('campaigns.store', $value);
 
     expect(resolve(CampaignStore::class))->toBeInstanceOf(InMemoryCampaignStore::class);
-});
+})->with(['absent' => [null], 'blank' => [''], 'whitespace' => [' ']]);
 
 it('registers every publish tag', function (string $tag): void {
     expect(ServiceProvider::pathsToPublish(CampaignsServiceProvider::class, $tag))->not->toBeEmpty();
@@ -166,6 +166,19 @@ it('reports an unset sender and notification as DEFAULT or NONE', function (): v
     $this->artisan('about --only=campaigns')
         ->expectsOutputToContain('NONE')
         ->expectsOutputToContain('DEFAULT')
+        ->assertExitCode(0);
+});
+
+it('reports a whitespace-only sender, queue or notification as not set', function (): void {
+    config()->set('campaigns.from-name', ' ');
+    config()->set('campaigns.from-address', ' ');
+    config()->set('campaigns.sending-queue', ' ');
+    config()->set('campaigns.notification', ' ');
+
+    $this->artisan('about --only=campaigns')
+        ->expectsOutputToContain('NONE')
+        ->expectsOutputToContain('DEFAULT')
+        ->doesntExpectOutputToContain('SET')
         ->assertExitCode(0);
 });
 

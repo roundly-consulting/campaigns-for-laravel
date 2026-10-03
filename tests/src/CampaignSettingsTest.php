@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Artisan;
 use RoundlyConsulting\Campaigns\Facades\Campaigns;
+use RoundlyConsulting\Campaigns\Jobs\SendCampaignEmail;
 use RoundlyConsulting\Campaigns\Options\DefaultChannel;
 use RoundlyConsulting\Campaigns\Options\DefaultFromAddress;
 use RoundlyConsulting\Campaigns\Options\DefaultFromName;
 use RoundlyConsulting\Campaigns\Options\DefaultRecipientContactType;
 use RoundlyConsulting\Campaigns\Options\DefaultSendingQueue;
 use RoundlyConsulting\Campaigns\Options\OnlyVerifiedRecipients;
+use RoundlyConsulting\Campaigns\Stores\InMemoryCampaignStore;
+use RoundlyConsulting\Campaigns\Support\CampaignsConfig;
 use RoundlyConsulting\Campaigns\Support\CampaignSettings;
 use RoundlyConsulting\Campaigns\Tests\Fixtures\CampaignOwner;
 use RoundlyConsulting\Contacts\Enums\ContactType;
@@ -49,33 +52,50 @@ it('refuses an unknown recipient contact type instead of reading it as email (st
         InvalidConfigurationException::class,
         'Configuration value [campaigns.recipients.contact-type] must be one of [email, phone, address, url, social, custom]',
     );
-})->with(['typo' => ['emial'], 'capitalised' => ['Email'], 'blank' => ['']]);
+})->with(['typo' => ['emial'], 'capitalised' => ['Email']]);
 
-it('uses email when the recipient contact type is absent (strict config)', function (): void {
-    config()->set('campaigns.recipients.contact-type', null);
+it('uses email when the recipient contact type is absent or blank (strict config)', function (?string $value): void {
+    config()->set('campaigns.recipients.contact-type', $value);
 
     expect((new DefaultRecipientContactType)->default())->toBe(ContactType::Email);
-});
+})->with(['absent' => [null], 'blank' => [''], 'whitespace' => [' ']]);
 
-it('refuses a blank or non-string channel or queue, and a non-string sender (strict config)', function (string $key, mixed $value, Closure $read): void {
+it('refuses a non-string channel, queue or sender (strict config)', function (string $key, mixed $value, Closure $read): void {
     config()->set($key, $value);
 
     expect($read)->toThrow(InvalidConfigurationException::class, "Configuration value [{$key}]");
 })->with([
-    'channel blank' => ['campaigns.notification-channel', '', fn () => (new DefaultChannel)->default()],
     'channel array' => ['campaigns.notification-channel', ['mail'], fn () => (new DefaultChannel)->default()],
-    'queue blank' => ['campaigns.sending-queue', ' ', fn () => (new DefaultSendingQueue)->default()],
+    'channel bool' => ['campaigns.notification-channel', true, fn () => (new DefaultChannel)->default()],
     'queue int' => ['campaigns.sending-queue', 5, fn () => (new DefaultSendingQueue)->default()],
     'from name array' => ['campaigns.from-name', ['Acme'], fn () => (new DefaultFromName)->default()],
     'from address int' => ['campaigns.from-address', 1, fn () => (new DefaultFromAddress)->default()],
 ]);
 
-it('keeps a blank sender as the documented "use the mailer from" value (strict config)', function (): void {
-    config()->set('campaigns.from-name', '');
-    config()->set('campaigns.from-address', null);
+it('reads a blank channel or queue as not set, so the default applies (strict config)', function (string $blank): void {
+    config()->set('campaigns.notification-channel', $blank);
+    config()->set('campaigns.sending-queue', $blank);
+
+    expect((new DefaultChannel)->default())->toBe('mail')
+        ->and((new DefaultSendingQueue)->default())->toBe('default');
+})->with(['empty' => [''], 'whitespace' => ['  ']]);
+
+it('keeps a blank sender as the documented "use the mailer from" value (strict config)', function (?string $value): void {
+    config()->set('campaigns.from-name', $value);
+    config()->set('campaigns.from-address', $value);
 
     expect((new DefaultFromName)->default())->toBe('')
         ->and((new DefaultFromAddress)->default())->toBe('');
+})->with(['absent' => [null], 'blank' => [''], 'whitespace' => [' ']]);
+
+it('reads a blank store, job or notification class as not set (strict config)', function (): void {
+    config()->set('campaigns.store', '');
+    config()->set('campaigns.process-recipient-job', ' ');
+    config()->set('campaigns.notification', '');
+
+    expect(CampaignsConfig::store())->toBe(InMemoryCampaignStore::class)
+        ->and(CampaignsConfig::recipientJob())->toBe(SendCampaignEmail::class)
+        ->and(CampaignsConfig::notification())->toBeNull();
 });
 
 it('reads config defaults when no option is set', function (): void {

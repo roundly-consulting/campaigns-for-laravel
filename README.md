@@ -98,14 +98,14 @@ return [
 | `from-address` | `string` | `''` (env `CAMPAIGNS_FROM_ADDRESS`) | Default sender address used when a campaign is dispatched without `->from()`. Seeds the `DefaultFromAddress` option. Left blank, `SendCampaignEmail` sends from your mailer's global `mail.from` address and name. |
 | `recipients.only-verified` | `bool` | `false` (env `CAMPAIGNS_ONLY_VERIFIED`) | Skip owners/contacts without a verified contact when resolving recipients. Seeds the `OnlyVerifiedRecipients` option. Read strictly: `true`/`1`/`on`/`yes` or `false`/`0`/`off`/`no`; anything else throws `InvalidConfigurationException`. |
 | `recipients.contact-type` | `string` | `email` (env `CAMPAIGNS_RECIPIENT_CONTACT_TYPE`) | Contact kind resolved for an owner when `->viaContactType()` is unset — a `ContactType` value (`email`, `phone`, `address`, `url`, `social`, `custom`). Seeds the `DefaultRecipientContactType` option. A typo throws `InvalidConfigurationException` instead of reading as `email`. |
-| `sending-queue` | `string` | `default` (env `CAMPAIGNS_SENDING_QUEUE`) | Queue every per-recipient delivery job runs on — point a worker at it (`php artisan queue:work --queue=…`). The campaign's job batch is opened on it when the campaign is prepared (a Laravel batch pushes all of its jobs onto one queue). Seeds the `DefaultSendingQueue` option. A blank or non-string value throws. |
+| `sending-queue` | `string` | `default` (env `CAMPAIGNS_SENDING_QUEUE`) | Queue every per-recipient delivery job runs on — point a worker at it (`php artisan queue:work --queue=…`). The campaign's job batch is opened on it when the campaign is prepared (a Laravel batch pushes all of its jobs onto one queue). Seeds the `DefaultSendingQueue` option. A blank value is not set (`default`); a non-string value throws. |
 | `process-recipient-job` | `class-string` | `SendCampaignEmail::class` | The job dispatched once per recipient. Must implement `Contracts\ProcessesCampaignRecipient`. |
 | `notification` | `class-string\|null` | `null` (env `CAMPAIGNS_NOTIFICATION`) | A `Notifications\CampaignNotification` subclass delivered by `SendCampaignNotification`. Any other class fails the send with an `InvalidConfigurationException` message on the recipient. |
-| `notification-channel` | `string` | `mail` (env `CAMPAIGNS_NOTIFICATION_CHANNEL`) | Routing channel for `SendCampaignNotification`'s on-demand notifiable. Seeds the `DefaultChannel` option. A blank or non-string value throws. |
+| `notification-channel` | `string` | `mail` (env `CAMPAIGNS_NOTIFICATION_CHANNEL`) | Routing channel for `SendCampaignNotification`'s on-demand notifiable. Seeds the `DefaultChannel` option. A blank value is not set (`mail`); a non-string value throws. |
 
-A default applies only when a key is absent (unset or `null`). The sender fields are the one
-place a blank string is meaningful (`''` keeps the mailer's own "from"); a non-string sender
-throws. `php artisan about` renders a broken setting as `INVALID`.
+A key that is not set — absent, `null`, or blank like a host's `CAMPAIGNS_SENDING_QUEUE=` —
+takes its default. For the sender fields that default is `''`, which keeps the mailer's own
+"from"; for `notification` it is none. A non-string or unusable value throws. `php artisan about` renders a broken setting as `INVALID`.
 
 The send defaults above are also **DB-backed and runtime-editable** through
 `options-for-laravel` — the config value is the seed/fallback, a stored option overrides it.

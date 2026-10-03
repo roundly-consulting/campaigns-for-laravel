@@ -16,11 +16,12 @@ use RoundlyConsulting\PackageToolkit\Support\Config;
 /**
  * Strict readers for the package's non-boolean settings.
  *
- * A default applies only when the key is absent (null). Anything present but unusable — an
- * `emial` contact type, a blank queue, a store or job class that does not implement its
- * contract — throws {@see InvalidConfigurationException} naming the key, instead of quietly
- * falling back (an unknown contact type used to read as email, a junk store as the in-memory
- * one).
+ * A setting that is not set — absent, null, or blank like a host's `KEY=` — takes its default
+ * (for the optional notification, none; for a sender field, `''`: the mailer's own). Anything
+ * else unusable — an `emial` contact type, a non-string queue, a store or job class that does not
+ * implement its contract — throws {@see InvalidConfigurationException} naming the key, instead
+ * of quietly falling back (an unknown contact type used to read as email, a junk store as the
+ * in-memory one).
  *
  * @internal
  */
@@ -49,7 +50,7 @@ final class CampaignsConfig
      */
     public static function notification(): ?string
     {
-        return config('campaigns.notification') === null
+        return self::unlessBlank(config('campaigns.notification')) === null
             ? null
             : self::implementation('campaigns.notification', CampaignNotification::class, CampaignNotification::class);
     }
@@ -64,13 +65,13 @@ final class CampaignsConfig
         return self::string('campaigns.sending-queue', 'default');
     }
 
-    /** The default sender name; `''` (documented: keep the mailer's "from") when unset. */
+    /** The default sender name; `''` (documented: keep the mailer's "from") when not set (absent or blank). */
     public static function fromName(): string
     {
         return self::sender('campaigns.from-name');
     }
 
-    /** The default sender address; `''` (documented: keep the mailer's "from") when unset. */
+    /** The default sender address; `''` (documented: keep the mailer's "from") when not set (absent or blank). */
     public static function fromAddress(): string
     {
         return self::sender('campaigns.from-address');
@@ -90,7 +91,7 @@ final class CampaignsConfig
      */
     private static function implementation(string $key, string $contract, string $default): string
     {
-        $class = config($key) ?? $default;
+        $class = self::unlessBlank(config($key)) ?? $default;
 
         if (! is_string($class) || ! is_subclass_of($class, $contract)) {
             throw InvalidConfigurationException::notAnImplementation($key, $contract, $class);
@@ -101,23 +102,23 @@ final class CampaignsConfig
 
     private static function string(string $key, string $default): string
     {
-        $value = config($key);
+        $value = self::unlessBlank(config($key));
 
         if ($value === null) {
             return $default;
         }
 
-        if (! is_string($value) || trim($value) === '') {
+        if (! is_string($value)) {
             throw InvalidConfigurationException::notAString($key, $value);
         }
 
         return $value;
     }
 
-    /** A sender field: any string, `''` meaning "the mailer's own". */
+    /** A sender field: any string; not set (absent or blank) is `''`, meaning "the mailer's own". */
     private static function sender(string $key): string
     {
-        $value = config($key) ?? '';
+        $value = self::unlessBlank(config($key)) ?? '';
 
         if (! is_string($value)) {
             throw new InvalidConfigurationException(
@@ -126,5 +127,14 @@ final class CampaignsConfig
         }
 
         return $value;
+    }
+
+    /**
+     * A raw config value, with a blank string (`''` or whitespace — a host's `KEY=`) read as
+     * null: not set, exactly like an absent key.
+     */
+    private static function unlessBlank(mixed $value): mixed
+    {
+        return is_string($value) && trim($value) === '' ? null : $value;
     }
 }

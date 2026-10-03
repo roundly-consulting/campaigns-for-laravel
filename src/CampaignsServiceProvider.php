@@ -103,13 +103,13 @@ final class CampaignsServiceProvider extends PackageServiceProvider
 
     /**
      * Presence of a configured value — never the value itself. `DEFAULT` when
-     * it is absent (or still on the shipped fallback), `NONE` when there is no
-     * fallback at all.
+     * it is not set — absent or blank — (or still on the shipped fallback),
+     * `NONE` when there is no fallback at all.
      */
     private static function presence(string $key, ?string $default = null): string
     {
         $value = config($key);
-        $configured = is_string($value) && $value !== '' && $value !== $default;
+        $configured = is_string($value) && trim($value) !== '' && $value !== $default;
 
         return match (true) {
             $configured => 'SET',
