@@ -19,10 +19,10 @@ declare(strict_types=1);
 it('ships exactly the config keys it reads', function (): void {
     expect(__DIR__.'/../../config/campaigns.php')->toSatisfyConfigContract(__DIR__.'/../../src', [
         // These are read through the strict readers in Support\CampaignsConfig, which take the
-        // key as an argument (`self::string($key, …)`, `self::implementation($key, …)`) or go
-        // through `Config::enum(…)` — so the scraper sees a `config(` token with a VARIABLE key,
-        // or no `config(` token at all, and the literal key one frame up. Naming each key is
-        // what connects the two.
+        // key as an argument (`self::string($key, …)`, `self::implementation($key, …)`) — so the
+        // scraper sees a `config(` token with a VARIABLE key, and the literal key one frame up.
+        // Naming each key is what connects the two. (`campaigns.recipients.contact-type` goes
+        // through the toolkit's `Config::enum(…)`, which the contract reads natively.)
         //
         // `campaigns.store` is the load-bearing one: it is read at register() to bind the
         // CampaignStore implementation, and CampaignsConfig is its ONLY reader.
@@ -35,7 +35,6 @@ it('ships exactly the config keys it reads', function (): void {
             'campaigns.store',
             'campaigns.process-recipient-job',
             'campaigns.notification-channel',
-            'campaigns.recipients.contact-type',
             'campaigns.sending-queue',
             'campaigns.from-name',
             'campaigns.from-address',
