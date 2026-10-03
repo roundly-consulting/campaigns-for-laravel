@@ -18,6 +18,7 @@ use RoundlyConsulting\Campaigns\Stores\InMemoryCampaignStore;
 use RoundlyConsulting\Options\Facades\Options;
 use RoundlyConsulting\PackageToolkit\Package;
 use RoundlyConsulting\PackageToolkit\PackageServiceProvider;
+use RoundlyConsulting\PackageToolkit\Support\Config;
 
 final class CampaignsServiceProvider extends PackageServiceProvider
 {
@@ -43,7 +44,7 @@ final class CampaignsServiceProvider extends PackageServiceProvider
                 'Notification' => self::presence('campaigns.notification'),
                 'Notification channel' => self::configuredString('campaigns.notification-channel', 'mail'),
                 'Recipient contact type' => self::configuredString('campaigns.recipients.contact-type', 'email'),
-                'Verified recipients only' => (bool) config('campaigns.recipients.only-verified', false) ? 'ON' : 'OFF',
+                'Verified recipients only' => Config::boolean('campaigns.recipients.only-verified') ? 'ON' : 'OFF',
             ]);
     }
 

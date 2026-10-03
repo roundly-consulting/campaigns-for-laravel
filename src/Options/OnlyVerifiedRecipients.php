@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Campaigns\Options;
 
 use RoundlyConsulting\Options\BaseOption;
+use RoundlyConsulting\PackageToolkit\Support\Config;
 
 /**
  * Whether contact-resolved recipients must be verified. When true, owners and
@@ -20,6 +21,6 @@ final class OnlyVerifiedRecipients extends BaseOption
 
     public function default(): bool
     {
-        return (bool) config('campaigns.recipients.only-verified', false);
+        return Config::boolean('campaigns.recipients.only-verified');
     }
 }

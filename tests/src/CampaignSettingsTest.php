@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Artisan;
 use RoundlyConsulting\Campaigns\Facades\Campaigns;
 use RoundlyConsulting\Campaigns\Options\DefaultChannel;
 use RoundlyConsulting\Campaigns\Options\DefaultFromAddress;
@@ -13,6 +14,7 @@ use RoundlyConsulting\Campaigns\Support\CampaignSettings;
 use RoundlyConsulting\Campaigns\Tests\Fixtures\CampaignOwner;
 use RoundlyConsulting\Contacts\Enums\ContactType;
 use RoundlyConsulting\Options\Facades\Options;
+use RoundlyConsulting\PackageToolkit\Exceptions\InvalidConfigurationException;
 
 beforeEach(fn () => fakeBus());
 
@@ -150,3 +152,30 @@ it('lets an explicit viaContactType override the option', function (): void {
 
     expect($recipients[0]->reachableAt)->toBe('ada@calc.test');
 });
+
+it('reads the only-verified switch words strictly', function (string $value, bool $expected): void {
+    config()->set('campaigns.recipients.only-verified', $value);
+
+    expect((new OnlyVerifiedRecipients)->default())->toBe($expected)
+        ->and(settings()->onlyVerifiedRecipients())->toBe($expected);
+})->with([
+    'off' => ['off', false],
+    'no' => ['no', false],
+    '0' => ['0', false],
+    'on' => ['on', true],
+    'yes' => ['yes', true],
+    '1' => ['1', true],
+]);
+
+it('throws on an only-verified typo instead of reading it as off (strict config)', function (Closure $read): void {
+    config()->set('campaigns.recipients.only-verified', 'disabled');
+
+    expect($read)->toThrow(
+        InvalidConfigurationException::class,
+        'Configuration value [campaigns.recipients.only-verified] must be a boolean (true/false, 1/0, on/off or yes/no), [disabled] given.',
+    );
+})->with([
+    'option default' => [fn (): bool => (new OnlyVerifiedRecipients)->default()],
+    'settings' => [fn (): bool => settings()->onlyVerifiedRecipients()],
+    'about' => [fn (): int => Artisan::call('about', ['--only' => 'campaigns'])],
+]);
