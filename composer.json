@@ -18,29 +18,11 @@
     "require": {
         "php": "^8.4",
         "illuminate/contracts": "^12.0|^13.0",
-        "roundly-consulting/contacts-for-laravel": "@dev",
-        "roundly-consulting/enums-for-laravel": "@dev",
-        "roundly-consulting/options-for-laravel": "@dev",
-        "roundly-consulting/package-toolkit-for-laravel": "@dev"
+        "roundly-consulting/contacts-for-laravel": "^1.0",
+        "roundly-consulting/enums-for-laravel": "^1.0",
+        "roundly-consulting/options-for-laravel": "^1.0",
+        "roundly-consulting/package-toolkit-for-laravel": "^1.0"
     },
-    "repositories": [
-        { "type": "path", "url": "../contacts-for-laravel*", "options": { "symlink": true } },
-        { "type": "path", "url": "../crypto-for-laravel*", "options": { "symlink": true } },
-        { "type": "path", "url": "../options-for-laravel*", "options": { "symlink": true } },
-        { "type": "path", "url": "../enums-for-laravel*", "options": { "symlink": true } },
-        { "type": "path", "url": "../package-toolkit-for-laravel*", "options": { "symlink": true } },
-        { "type": "path", "url": "../addresses-for-laravel*", "options": { "symlink": true } },
-        { "type": "path", "url": "../connections-for-laravel*", "options": { "symlink": true } },
-        { "type": "vcs", "url": "https://github.com/roundly-consulting/contacts-for-laravel", "no-api": true },
-        { "type": "vcs", "url": "https://github.com/roundly-consulting/crypto-for-laravel", "no-api": true },
-        { "type": "vcs", "url": "https://github.com/roundly-consulting/options-for-laravel", "no-api": true },
-        { "type": "vcs", "url": "https://github.com/roundly-consulting/enums-for-laravel", "no-api": true },
-        { "type": "vcs", "url": "https://github.com/roundly-consulting/package-toolkit-for-laravel", "no-api": true },
-        { "type": "vcs", "url": "https://github.com/roundly-consulting/addresses-for-laravel", "no-api": true },
-        { "type": "vcs", "url": "https://github.com/roundly-consulting/connections-for-laravel", "no-api": true },
-        { "type": "path", "url": "../testing-for-laravel*", "options": { "symlink": true } },
-        { "type": "vcs", "url": "https://github.com/roundly-consulting/testing-for-laravel", "no-api": true }
-    ],
     "require-dev": {
         "larastan/larastan": "^3.0",
         "laravel/pint": "^1.18",
@@ -52,7 +34,7 @@
         "phpstan/phpstan-deprecation-rules": "^2.0",
         "phpstan/phpstan-phpunit": "^2.0",
         "phpunit/phpunit": "^12.0",
-        "roundly-consulting/testing-for-laravel": "@dev"
+        "roundly-consulting/testing-for-laravel": "^1.0"
     },
     "autoload": {
         "psr-4": {
@@ -88,7 +70,5 @@
                 "Campaigns": "RoundlyConsulting\\Campaigns\\Facades\\Campaigns"
             }
         }
-    },
-    "minimum-stability": "dev",
-    "prefer-stable": true
+    }
 }
