@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Campaigns\Options;
 
+use RoundlyConsulting\Campaigns\Support\CampaignsConfig;
 use RoundlyConsulting\Options\BaseOption;
 
 /**
@@ -19,6 +20,6 @@ final class DefaultChannel extends BaseOption
 
     public function default(): string
     {
-        return (string) config('campaigns.notification-channel', 'mail');
+        return CampaignsConfig::notificationChannel();
     }
 }

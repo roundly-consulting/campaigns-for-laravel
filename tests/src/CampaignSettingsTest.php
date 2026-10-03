@@ -42,10 +42,40 @@ it('each option casts and defaults from config', function (): void {
         ->and((new DefaultRecipientContactType)->default())->toBe(ContactType::Phone);
 });
 
-it('falls back to an unknown recipient contact type as email', function (): void {
-    config()->set('campaigns.recipients.contact-type', 'nonsense');
+it('refuses an unknown recipient contact type instead of reading it as email (strict config)', function (mixed $value): void {
+    config()->set('campaigns.recipients.contact-type', $value);
+
+    expect(fn () => (new DefaultRecipientContactType)->default())->toThrow(
+        InvalidConfigurationException::class,
+        'Configuration value [campaigns.recipients.contact-type] must be one of [email, phone, address, url, social, custom]',
+    );
+})->with(['typo' => ['emial'], 'capitalised' => ['Email'], 'blank' => ['']]);
+
+it('uses email when the recipient contact type is absent (strict config)', function (): void {
+    config()->set('campaigns.recipients.contact-type', null);
 
     expect((new DefaultRecipientContactType)->default())->toBe(ContactType::Email);
+});
+
+it('refuses a blank or non-string channel or queue, and a non-string sender (strict config)', function (string $key, mixed $value, Closure $read): void {
+    config()->set($key, $value);
+
+    expect($read)->toThrow(InvalidConfigurationException::class, "Configuration value [{$key}]");
+})->with([
+    'channel blank' => ['campaigns.notification-channel', '', fn () => (new DefaultChannel)->default()],
+    'channel array' => ['campaigns.notification-channel', ['mail'], fn () => (new DefaultChannel)->default()],
+    'queue blank' => ['campaigns.sending-queue', ' ', fn () => (new DefaultSendingQueue)->default()],
+    'queue int' => ['campaigns.sending-queue', 5, fn () => (new DefaultSendingQueue)->default()],
+    'from name array' => ['campaigns.from-name', ['Acme'], fn () => (new DefaultFromName)->default()],
+    'from address int' => ['campaigns.from-address', 1, fn () => (new DefaultFromAddress)->default()],
+]);
+
+it('keeps a blank sender as the documented "use the mailer from" value (strict config)', function (): void {
+    config()->set('campaigns.from-name', '');
+    config()->set('campaigns.from-address', null);
+
+    expect((new DefaultFromName)->default())->toBe('')
+        ->and((new DefaultFromAddress)->default())->toBe('');
 });
 
 it('reads config defaults when no option is set', function (): void {

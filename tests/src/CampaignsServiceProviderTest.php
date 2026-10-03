@@ -13,6 +13,7 @@ use RoundlyConsulting\Campaigns\Contracts\CampaignStore;
 use RoundlyConsulting\Campaigns\Facades\Campaigns;
 use RoundlyConsulting\Campaigns\Stores\DatabaseCampaignStore;
 use RoundlyConsulting\Campaigns\Stores\InMemoryCampaignStore;
+use RoundlyConsulting\PackageToolkit\Exceptions\InvalidConfigurationException;
 
 it('merges the package config', function (): void {
     expect(config('campaigns.store'))->toBe(InMemoryCampaignStore::class)
@@ -49,8 +50,17 @@ it('binds the database store when it is configured', function (): void {
         ->and(Schema::hasTable('campaign_recipients'))->toBeTrue();
 });
 
-it('falls back to the in-memory store when the configured value is unusable', function (): void {
-    config()->set('campaigns.store', '');
+it('refuses an unusable store instead of falling back to the in-memory one (strict config)', function (mixed $value): void {
+    config()->set('campaigns.store', $value);
+
+    expect(fn () => resolve(CampaignStore::class))->toThrow(
+        InvalidConfigurationException::class,
+        'Configuration value [campaigns.store] must be a class-string of ['.CampaignStore::class.']',
+    );
+})->with(['blank' => [''], 'unknown class' => ['App\\Stores\\Missing'], 'not a store' => [stdClass::class]]);
+
+it('uses the in-memory store when none is configured (strict config)', function (): void {
+    config()->set('campaigns.store', null);
 
     expect(resolve(CampaignStore::class))->toBeInstanceOf(InMemoryCampaignStore::class);
 });

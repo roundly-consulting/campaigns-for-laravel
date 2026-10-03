@@ -10,7 +10,8 @@ return [
      * Where campaigns and recipients are kept: a Contracts\CampaignStore
      * implementation. Defaults to the in-process InMemoryCampaignStore. Switch
      * to Stores\DatabaseCampaignStore::class to persist campaigns (publish and
-     * run the migrations first), or point at your own implementation.
+     * run the migrations first), or point at your own implementation. A value
+     * that is not a CampaignStore class throws an InvalidConfigurationException.
      */
     'store' => env('CAMPAIGNS_STORE', InMemoryCampaignStore::class),
 
@@ -33,7 +34,8 @@ return [
         'only-verified' => env('CAMPAIGNS_ONLY_VERIFIED', false),
 
         // Contact kind resolved for an owner when ->viaContactType() is unset
-        // (one of the RoundlyConsulting\Contacts\Enums\ContactType values).
+        // (one of the RoundlyConsulting\Contacts\Enums\ContactType values; any
+        // other value throws).
         'contact-type' => env('CAMPAIGNS_RECIPIENT_CONTACT_TYPE', 'email'),
     ],
 

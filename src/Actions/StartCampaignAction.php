@@ -11,8 +11,8 @@ use RoundlyConsulting\Campaigns\Contracts\ProcessesCampaignRecipient;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
 use RoundlyConsulting\Campaigns\Exceptions\CampaignNotFound;
 use RoundlyConsulting\Campaigns\Exceptions\InvalidCampaignTransition;
-use RoundlyConsulting\Campaigns\Jobs\SendCampaignEmail;
 use RoundlyConsulting\Campaigns\Support\CampaignBatches;
+use RoundlyConsulting\Campaigns\Support\CampaignsConfig;
 
 /**
  * Start sending a prepared campaign: move it to Processing (CampaignStarted) and queue one
@@ -45,14 +45,15 @@ final readonly class StartCampaignAction
             throw InvalidCampaignTransition::cannotStart($campaign);
         }
 
+        // Resolved before the status moves, so a misconfigured job class throws while the
+        // campaign is still Pending instead of stranding it in Processing.
+        $job = CampaignsConfig::recipientJob();
+
         // Processing first: on a sync queue the jobs run — and the batch finishes — inside add().
         // `from: Pending` makes the move a compare-and-set, so of two starts racing past the
         // check above only one gets here; the other throws instead of queueing every recipient
         // a second time.
         $campaign = $this->changeStatus->execute($campaign, CampaignStatus::Processing, from: CampaignStatus::Pending);
-
-        /** @var class-string<ProcessesCampaignRecipient> $job */
-        $job = config('campaigns.process-recipient-job', SendCampaignEmail::class);
 
         $jobs = $this->store->recipients($uuid)
             ->map(static fn (CampaignRecipient $recipient): ProcessesCampaignRecipient => new $job($campaign, $recipient))

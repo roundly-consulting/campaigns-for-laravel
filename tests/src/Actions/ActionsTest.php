@@ -13,12 +13,14 @@ use RoundlyConsulting\Campaigns\Actions\StartCampaignAction;
 use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Contracts\CampaignStore;
+use RoundlyConsulting\Campaigns\Contracts\ProcessesCampaignRecipient;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
 use RoundlyConsulting\Campaigns\Events\CampaignCompleted;
 use RoundlyConsulting\Campaigns\Exceptions\CampaignNotFound;
 use RoundlyConsulting\Campaigns\Exceptions\RecipientNotFound;
 use RoundlyConsulting\Campaigns\Jobs\SendCampaignEmail;
 use RoundlyConsulting\Campaigns\Jobs\SendCampaignNotification;
+use RoundlyConsulting\PackageToolkit\Exceptions\InvalidConfigurationException;
 
 /**
  * Each action used raw — the third way into the API, next to the facade and the injected
@@ -80,6 +82,18 @@ it('queues the configured recipient job', function (): void {
     expect(resolve(BatchRepository::class)->find($campaign->batch)->added[0])
         ->toBeInstanceOf(SendCampaignNotification::class);
 });
+
+it('refuses a recipient job that is not one before starting the campaign (strict config)', function (mixed $job): void {
+    config()->set('campaigns.process-recipient-job', $job);
+
+    $campaign = app(PrepareCampaignAction::class)->execute($this->campaign, [$this->recipient]);
+
+    expect(fn () => app(StartCampaignAction::class)->execute($campaign))->toThrow(
+        InvalidConfigurationException::class,
+        'Configuration value [campaigns.process-recipient-job] must be a class-string of ['.ProcessesCampaignRecipient::class.']',
+    )
+        ->and(resolve(CampaignStore::class)->find($campaign->uuid)?->progress->status)->toBe(CampaignStatus::Pending);
+})->with(['blank' => [''], 'unknown class' => ['App\\Jobs\\Missing'], 'not a job' => [stdClass::class]]);
 
 it('cancels a campaign with CancelCampaignAction', function (): void {
     app(PrepareCampaignAction::class)->execute($this->campaign);

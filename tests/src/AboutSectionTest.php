@@ -62,3 +62,14 @@ it('reports the configured store and switches in the about section', function ()
         mustRender: ['InMemoryCampaignStore', 'SendCampaignEmail', 'NONE', 'DEFAULT', 'OFF'],
     );
 });
+
+it('flags a broken setting in about instead of rendering a fallback (strict config)', function (): void {
+    config()->set('campaigns.recipients.contact-type', 'emial');
+    config()->set('campaigns.notification-channel', '');
+    config()->set('campaigns.store', stdClass::class);
+
+    $this->artisan('about --only=campaigns')
+        ->expectsOutputToContain('INVALID')
+        ->doesntExpectOutputToContain('emial')
+        ->assertExitCode(0);
+});

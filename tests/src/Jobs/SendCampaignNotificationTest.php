@@ -79,6 +79,21 @@ it('sends a notification and marks the recipient processed', function (): void {
     expect($this->job->recipient->hasBeenProcessed)->toBeTrue();
 });
 
+it('marks the recipient failed with the config error for a class that is not a CampaignNotification (strict config)', function (): void {
+    config()->set('campaigns.notification', stdClass::class);
+
+    $this->job->withFakeBatch();
+
+    NotificationFacade::fake();
+
+    $this->job->handle(resolve(CampaignManager::class));
+
+    expect($this->job->recipient)
+        ->errorOccured->toBeTrue()
+        ->errorMessage->toContain('Configuration value [campaigns.notification] must be a class-string of ['.CampaignNotification::class.']');
+    NotificationFacade::assertNothingSent();
+});
+
 it('marks the recipient failed when no notification class is configured', function (): void {
     config()->set('campaigns.notification', null);
 

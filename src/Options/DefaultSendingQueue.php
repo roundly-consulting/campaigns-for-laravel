@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Campaigns\Options;
 
+use RoundlyConsulting\Campaigns\Support\CampaignsConfig;
 use RoundlyConsulting\Options\BaseOption;
 
 /**
@@ -19,6 +20,6 @@ final class DefaultSendingQueue extends BaseOption
 
     public function default(): string
     {
-        return (string) config('campaigns.sending-queue', 'default');
+        return CampaignsConfig::sendingQueue();
     }
 }

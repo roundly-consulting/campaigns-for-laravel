@@ -17,6 +17,7 @@ use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Contracts\ProcessesCampaignRecipient;
 use RoundlyConsulting\Campaigns\Exceptions\CampaignException;
 use RoundlyConsulting\Campaigns\Notifications\CampaignNotification;
+use RoundlyConsulting\Campaigns\Support\CampaignsConfig;
 use RoundlyConsulting\Campaigns\Support\CampaignSettings;
 use Throwable;
 
@@ -56,8 +57,7 @@ final class SendCampaignNotification implements ProcessesCampaignRecipient, Shou
 
     private function resolveNotification(): CampaignNotification
     {
-        /** @var class-string<CampaignNotification>|null $class */
-        $class = config('campaigns.notification');
+        $class = CampaignsConfig::notification();
 
         if ($class === null) {
             throw new CampaignException(

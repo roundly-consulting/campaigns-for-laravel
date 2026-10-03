@@ -18,19 +18,14 @@ declare(strict_types=1);
  */
 it('ships exactly the config keys it reads', function (): void {
     expect(__DIR__.'/../../config/campaigns.php')->toSatisfyConfigContract(__DIR__.'/../../src', [
-        // These four are read through the provider's own `configuredString($key, $default)`
-        // helper, which calls `config($key, …)` with a VARIABLE key — so the scraper sees
-        // the `config(` token but cannot attribute it, and sees the literal key one frame
-        // up. The prefix is what connects the two.
-        //
-        // All four are named even though only `campaigns.store` currently fails without
-        // this. The other three happen to have a second, direct `config('campaigns.…')`
-        // reader elsewhere and so pass incidentally — if that reader ever went away they
-        // would report unread while `configuredString` still read them, which is a false
-        // positive waiting to happen. Naming the mechanism models what is really true.
+        // These are read through the strict readers in Support\CampaignsConfig, which take the
+        // key as an argument (`self::string($key, …)`, `self::implementation($key, …)`) or go
+        // through `Config::enum(…)` — so the scraper sees a `config(` token with a VARIABLE key,
+        // or no `config(` token at all, and the literal key one frame up. Naming each key is
+        // what connects the two.
         //
         // `campaigns.store` is the load-bearing one: it is read at register() to bind the
-        // CampaignStore implementation, and `configuredString` is its ONLY reader.
+        // CampaignStore implementation, and CampaignsConfig is its ONLY reader.
         //
         // The keys are named exactly rather than using a blanket `'campaigns.'`, which would
         // count ANY string literal under the prefix as a read wherever it appeared —
@@ -41,6 +36,9 @@ it('ships exactly the config keys it reads', function (): void {
             'campaigns.process-recipient-job',
             'campaigns.notification-channel',
             'campaigns.recipients.contact-type',
+            'campaigns.sending-queue',
+            'campaigns.from-name',
+            'campaigns.from-address',
         ],
 
         // Deliberately NO `excludeFromReverse` for the provider. The testing README's own

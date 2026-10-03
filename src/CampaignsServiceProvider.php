@@ -4,18 +4,19 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Campaigns;
 
+use Closure;
 use RoundlyConsulting\Campaigns\Commands\CampaignsCancelCommand;
 use RoundlyConsulting\Campaigns\Commands\CampaignsListCommand;
 use RoundlyConsulting\Campaigns\Contracts\CampaignStore;
-use RoundlyConsulting\Campaigns\Jobs\SendCampaignEmail;
 use RoundlyConsulting\Campaigns\Options\DefaultChannel;
 use RoundlyConsulting\Campaigns\Options\DefaultFromAddress;
 use RoundlyConsulting\Campaigns\Options\DefaultFromName;
 use RoundlyConsulting\Campaigns\Options\DefaultRecipientContactType;
 use RoundlyConsulting\Campaigns\Options\DefaultSendingQueue;
 use RoundlyConsulting\Campaigns\Options\OnlyVerifiedRecipients;
-use RoundlyConsulting\Campaigns\Stores\InMemoryCampaignStore;
+use RoundlyConsulting\Campaigns\Support\CampaignsConfig;
 use RoundlyConsulting\Options\Facades\Options;
+use RoundlyConsulting\PackageToolkit\Exceptions\InvalidConfigurationException;
 use RoundlyConsulting\PackageToolkit\Package;
 use RoundlyConsulting\PackageToolkit\PackageServiceProvider;
 use RoundlyConsulting\PackageToolkit\Support\Config;
@@ -33,8 +34,8 @@ final class CampaignsServiceProvider extends PackageServiceProvider
                 CampaignsCancelCommand::class,
             ])
             ->contributesToAbout(static fn (): array => [
-                'Store' => class_basename(self::configuredString('campaigns.store', InMemoryCampaignStore::class)),
-                'Recipient job' => class_basename(self::configuredString('campaigns.process-recipient-job', SendCampaignEmail::class)),
+                'Store' => self::orInvalid(static fn (): string => class_basename(CampaignsConfig::store())),
+                'Recipient job' => self::orInvalid(static fn (): string => class_basename(CampaignsConfig::recipientJob())),
                 // The sender identity and the queue name are deployment details
                 // (a sending domain, a host's queue topology), so the section
                 // reports presence only — never the configured value.
@@ -42,8 +43,8 @@ final class CampaignsServiceProvider extends PackageServiceProvider
                 'From address' => self::presence('campaigns.from-address'),
                 'Sending queue' => self::presence('campaigns.sending-queue', 'default'),
                 'Notification' => self::presence('campaigns.notification'),
-                'Notification channel' => self::configuredString('campaigns.notification-channel', 'mail'),
-                'Recipient contact type' => self::configuredString('campaigns.recipients.contact-type', 'email'),
+                'Notification channel' => self::orInvalid(CampaignsConfig::notificationChannel(...)),
+                'Recipient contact type' => self::orInvalid(static fn (): string => CampaignsConfig::recipientContactType()->value),
                 'Verified recipients only' => Config::boolean('campaigns.recipients.only-verified') ? 'ON' : 'OFF',
             ]);
     }
@@ -56,10 +57,7 @@ final class CampaignsServiceProvider extends PackageServiceProvider
         // requests), so the in-memory store holds one request's or job's campaigns and never
         // grows — or leaks campaigns into the next one — for a worker's lifetime.
         $this->app->scoped(CampaignStore::class, function (): CampaignStore {
-            /** @var class-string<CampaignStore> $store */
-            $store = self::configuredString('campaigns.store', InMemoryCampaignStore::class);
-
-            return resolve($store);
+            return resolve(CampaignsConfig::store());
         });
 
         $this->app->singleton(CampaignManager::class);
@@ -88,11 +86,19 @@ final class CampaignsServiceProvider extends PackageServiceProvider
         ]);
     }
 
-    private static function configuredString(string $key, string $default): string
+    /**
+     * A strict read rendered for `about`, or `INVALID` when the setting is broken — so
+     * `php artisan about` still works on a misconfigured host while every real read throws.
+     *
+     * @param  Closure(): string  $read
+     */
+    private static function orInvalid(Closure $read): string
     {
-        $value = config($key, $default);
-
-        return is_string($value) && $value !== '' ? $value : $default;
+        try {
+            return $read();
+        } catch (InvalidConfigurationException) {
+            return 'INVALID';
+        }
     }
 
     /**
