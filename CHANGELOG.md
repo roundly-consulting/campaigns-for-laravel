@@ -6,6 +6,11 @@ All notable changes to `campaigns-for-laravel` are documented in this file. The 
 
 ## Unreleased
 
+### Changed
+
+- Maintenance: requires the latest roundly packages — contacts `^1.1.1`, enums `^1.1.0`, options
+  `^1.1.0`, package-toolkit `^1.3.0`; dev: testing `^1.2.1`.
+
 ## 1.0.0 - 2026-10-03
 
 Initial public release.
