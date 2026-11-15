@@ -80,10 +80,10 @@ it('publishes the config file', function (): void {
     ]);
 });
 
-it('publishes both migrations timestamp-injected into the host, in order', function (): void {
+it('publishes every migration timestamp-injected into the host, in order', function (): void {
     $paths = ServiceProvider::pathsToPublish(CampaignsServiceProvider::class, 'campaigns-migrations');
 
-    expect($paths)->toHaveCount(2);
+    expect($paths)->toHaveCount(3);
 
     $sources = array_map(basename(...), array_keys($paths));
     $targets = array_values($paths);
@@ -91,6 +91,7 @@ it('publishes both migrations timestamp-injected into the host, in order', funct
     expect($sources)->toBe([
         '2026_06_20_000001_create_campaigns_table.php',
         '2026_06_20_000002_create_campaign_recipients_table.php',
+        '2026_11_15_000001_add_recipient_to_campaign_recipients_table.php',
     ]);
 
     foreach ($targets as $target) {
@@ -98,11 +99,13 @@ it('publishes both migrations timestamp-injected into the host, in order', funct
     }
 
     expect(basename((string) $targets[0]))->toMatch('/^\d{4}_\d{2}_\d{2}_\d{6}_create_campaigns_table\.php$/')
-        ->and(basename((string) $targets[1]))->toMatch('/^\d{4}_\d{2}_\d{2}_\d{6}_create_campaign_recipients_table\.php$/');
+        ->and(basename((string) $targets[1]))->toMatch('/^\d{4}_\d{2}_\d{2}_\d{6}_create_campaign_recipients_table\.php$/')
+        ->and(basename((string) $targets[2]))->toMatch('/^\d{4}_\d{2}_\d{2}_\d{6}_add_recipient_to_campaign_recipients_table\.php$/');
 
-    // The recipients table must publish after the campaigns table so the host
-    // runs them in the directory's order.
-    expect(basename((string) $targets[1]))->toBeGreaterThan(basename((string) $targets[0]));
+    // Each publishes after the one before it (the recipients table after the campaigns table,
+    // its ALTER after both) so the host runs them in the directory's order.
+    expect(basename((string) $targets[1]))->toBeGreaterThan(basename((string) $targets[0]))
+        ->and(basename((string) $targets[2]))->toBeGreaterThan(basename((string) $targets[1]));
 });
 
 it('never auto-loads its migrations — the host must publish them', function (): void {

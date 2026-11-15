@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Campaigns\Facades;
 
 use Closure;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Facade;
 use RoundlyConsulting\Campaigns\Campaign;
@@ -34,9 +35,9 @@ use RoundlyConsulting\Campaigns\Testing\CampaignsFake;
  * @method static void assertNothingStarted()
  * @method static void assertCancelled(Campaign|string|null $campaign = null)
  * @method static void assertNothingCancelled()
- * @method static void assertRecipientProcessed(CampaignRecipient|string|null $recipient = null)
+ * @method static void assertRecipientProcessed(CampaignRecipient|Model|string|null $recipient = null)
  * @method static void assertNothingProcessed()
- * @method static void assertRecipientFailed(CampaignRecipient|string|null $recipient = null, string|null $error = null)
+ * @method static void assertRecipientFailed(CampaignRecipient|Model|string|null $recipient = null, string|null $error = null)
  * @method static void assertNothingFailed()
  *
  * @see CampaignManager

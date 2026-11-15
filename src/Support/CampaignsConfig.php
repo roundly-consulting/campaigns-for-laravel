@@ -10,6 +10,7 @@ use RoundlyConsulting\Campaigns\Jobs\SendCampaignEmail;
 use RoundlyConsulting\Campaigns\Notifications\CampaignNotification;
 use RoundlyConsulting\Campaigns\Stores\InMemoryCampaignStore;
 use RoundlyConsulting\Contacts\Enums\ContactType;
+use RoundlyConsulting\PackageToolkit\Enums\KeyType;
 use RoundlyConsulting\PackageToolkit\Exceptions\InvalidConfigurationException;
 use RoundlyConsulting\PackageToolkit\Support\Config;
 
@@ -80,6 +81,15 @@ final class CampaignsConfig
     public static function recipientContactType(): ContactType
     {
         return Config::enum('campaigns.recipients.contact-type', ContactType::class, ContactType::Email);
+    }
+
+    /**
+     * Key type of the host models a recipient can stand for — what the `recipient_id` column
+     * was built with.
+     */
+    public static function recipientKeyType(): KeyType
+    {
+        return KeyType::fromConfig('campaigns.recipients.key-type');
     }
 
     /**

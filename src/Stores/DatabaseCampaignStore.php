@@ -16,6 +16,8 @@ use RoundlyConsulting\Campaigns\DataTransferObjects\RecipientCounts;
 use RoundlyConsulting\Campaigns\Enums\CampaignStatus;
 use RoundlyConsulting\Campaigns\Models\CampaignRecipientRecord;
 use RoundlyConsulting\Campaigns\Models\CampaignRecord;
+use RoundlyConsulting\Campaigns\Support\CampaignsConfig;
+use RoundlyConsulting\PackageToolkit\Enums\KeyType;
 
 /**
  * Persists campaigns in the `campaigns` / `campaign_recipients` tables (publish and run the
@@ -103,6 +105,9 @@ final class DatabaseCampaignStore implements CampaignStore
                 [
                     'name' => $recipient->name,
                     'reachable_at' => $recipient->reachableAt,
+                    'recipient_type' => $recipient->recipientType,
+                    'recipient_id' => $recipient->recipientId,
+                    'meta' => $recipient->meta,
                     'has_been_processed' => $recipient->hasBeenProcessed,
                     'error_occured' => $recipient->errorOccured,
                     'error_message' => $recipient->errorMessage,
@@ -210,6 +215,20 @@ final class DatabaseCampaignStore implements CampaignStore
             errorOccured: $record->error_occured,
             errorMessage: $record->error_message,
             campaignUuid: $record->campaign_uuid,
+            recipientType: $record->recipient_type,
+            recipientId: $this->recipientKey($record->recipient_id),
+            meta: $record->meta,
         );
+    }
+
+    /**
+     * A bigint key reads back as an int on every engine, even one whose driver hands numeric
+     * columns over as strings.
+     */
+    private function recipientKey(int|string|null $key): int|string|null
+    {
+        return is_string($key) && ctype_digit($key) && CampaignsConfig::recipientKeyType() === KeyType::BigInt
+            ? (int) $key
+            : $key;
     }
 }

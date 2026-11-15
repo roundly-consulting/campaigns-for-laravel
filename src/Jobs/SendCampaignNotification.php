@@ -16,6 +16,7 @@ use RoundlyConsulting\Campaigns\CampaignManager;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Contracts\ProcessesCampaignRecipient;
 use RoundlyConsulting\Campaigns\Exceptions\CampaignException;
+use RoundlyConsulting\Campaigns\Exceptions\RecipientHasNoAddress;
 use RoundlyConsulting\Campaigns\Notifications\CampaignNotification;
 use RoundlyConsulting\Campaigns\Support\CampaignsConfig;
 use RoundlyConsulting\Campaigns\Support\CampaignSettings;
@@ -26,7 +27,8 @@ use Throwable;
  *
  * The notification class is read from `campaigns.notification` and is constructed
  * with the campaign so it can render channel-specific content. The recipient is
- * resolved to an on-demand notifiable routed on `campaigns.notification-channel`.
+ * resolved to an on-demand notifiable routed on `campaigns.notification-channel`; a model
+ * recipient without a `reachableAt` is recorded as failed (RecipientHasNoAddress).
  */
 final class SendCampaignNotification implements ProcessesCampaignRecipient, ShouldQueue
 {
@@ -46,7 +48,9 @@ final class SendCampaignNotification implements ProcessesCampaignRecipient, Shou
         try {
             $channel = app(CampaignSettings::class)->notificationChannel();
 
-            NotificationFacade::route($channel, $this->recipient->reachableAt)
+            $address = $this->recipient->reachableAt ?? throw RecipientHasNoAddress::for($this->recipient);
+
+            NotificationFacade::route($channel, $address)
                 ->notify($this->resolveNotification());
 
             $campaigns->campaign($this->campaign)->markProcessed($this->recipient);

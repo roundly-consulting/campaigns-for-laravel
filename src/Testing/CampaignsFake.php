@@ -6,6 +6,7 @@ namespace RoundlyConsulting\Campaigns\Testing;
 
 use Closure;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use PHPUnit\Framework\Assert as PHPUnit;
 use RoundlyConsulting\Campaigns\Campaign;
@@ -211,13 +212,15 @@ final class CampaignsFake extends CampaignManager
         PHPUnit::assertSame([], $this->cancelled, sprintf('Expected no campaign to be cancelled, but %d were.', count($this->cancelled)));
     }
 
-    public function assertRecipientProcessed(CampaignRecipient|string|null $recipient = null): void
+    /**
+     * A recipient was marked processed: any one, the given recipient (or its uuid), or a model
+     * recipient standing for the given model.
+     */
+    public function assertRecipientProcessed(CampaignRecipient|Model|string|null $recipient = null): void
     {
-        $uuids = array_map(static fn (CampaignRecipient $processed): string => $processed->uuid, $this->processed);
-
-        PHPUnit::assertTrue(
-            self::recorded($uuids, $recipient),
-            $recipient === null ? 'Expected a recipient to be marked processed, but none was.' : 'Expected recipient ['.self::uuidOf($recipient).'] to be marked processed.',
+        PHPUnit::assertNotEmpty(
+            array_filter($this->processed, static fn (CampaignRecipient $processed): bool => self::matches($processed, $recipient)),
+            $recipient === null ? 'Expected a recipient to be marked processed, but none was.' : 'Expected recipient ['.self::describe($recipient).'] to be marked processed.',
         );
     }
 
@@ -227,21 +230,22 @@ final class CampaignsFake extends CampaignManager
     }
 
     /**
+     * A recipient was marked failed: any one, the given recipient (or its uuid), or a model
+     * recipient standing for the given model.
+     *
      * @param  string|null  $error  when given, the recorded error must match
      */
-    public function assertRecipientFailed(CampaignRecipient|string|null $recipient = null, ?string $error = null): void
+    public function assertRecipientFailed(CampaignRecipient|Model|string|null $recipient = null, ?string $error = null): void
     {
-        $uuid = $recipient === null ? null : self::uuidOf($recipient);
-
         $matching = array_filter(
             $this->failed,
-            static fn (array $failure): bool => ($uuid === null || $failure['recipient']->uuid === $uuid)
+            static fn (array $failure): bool => self::matches($failure['recipient'], $recipient)
                 && ($error === null || $failure['error'] === $error),
         );
 
         PHPUnit::assertNotEmpty(
             $matching,
-            'Expected '.($uuid === null ? 'a recipient' : "recipient [{$uuid}]").' to be marked failed'.($error === null ? '' : " with [{$error}]").'.',
+            'Expected '.($recipient === null ? 'a recipient' : 'recipient ['.self::describe($recipient).']').' to be marked failed'.($error === null ? '' : " with [{$error}]").'.',
         );
     }
 
@@ -285,6 +289,26 @@ final class CampaignsFake extends CampaignManager
     private static function recorded(array $uuids, Campaign|CampaignRecipient|string|null $subject): bool
     {
         return $subject === null ? $uuids !== [] : in_array(self::uuidOf($subject), $uuids, true);
+    }
+
+    private static function matches(CampaignRecipient $recorded, CampaignRecipient|Model|string|null $subject): bool
+    {
+        return match (true) {
+            $subject === null => true,
+            $subject instanceof Model => $recorded->isFor($subject),
+            default => $recorded->uuid === self::uuidOf($subject),
+        };
+    }
+
+    private static function describe(CampaignRecipient|Model|string $subject): string
+    {
+        if ($subject instanceof Model) {
+            $key = $subject->getKey();
+
+            return $subject->getMorphClass().':'.(is_int($key) || is_string($key) ? $key : '?');
+        }
+
+        return self::uuidOf($subject);
     }
 
     private static function uuidOf(Campaign|CampaignRecipient|string $subject): string

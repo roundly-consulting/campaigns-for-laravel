@@ -16,13 +16,15 @@ use RoundlyConsulting\Campaigns\Campaign;
 use RoundlyConsulting\Campaigns\CampaignManager;
 use RoundlyConsulting\Campaigns\CampaignRecipient;
 use RoundlyConsulting\Campaigns\Contracts\ProcessesCampaignRecipient;
+use RoundlyConsulting\Campaigns\Exceptions\RecipientHasNoAddress;
 use RoundlyConsulting\Campaigns\Support\CampaignSettings;
 use Throwable;
 
 /**
  * Delivers a campaign to a recipient as an HTML email. The campaign's sender is used when it
  * has one; a blank `fromAddress` (no `->from()`, no `from-address` default) keeps the mailer's
- * global `mail.from` address and name.
+ * global `mail.from` address and name. A model recipient without a `reachableAt` is recorded
+ * as failed (RecipientHasNoAddress).
  */
 final class SendCampaignEmail implements ProcessesCampaignRecipient, ShouldQueue
 {
@@ -40,9 +42,11 @@ final class SendCampaignEmail implements ProcessesCampaignRecipient, ShouldQueue
         }
 
         try {
-            Mail::html($this->campaign->content, function (Message $message): void {
+            $address = $this->recipient->reachableAt ?? throw RecipientHasNoAddress::for($this->recipient);
+
+            Mail::html($this->campaign->content, function (Message $message) use ($address): void {
                 $message->subject($this->campaign->subject)->to(
-                    address: $this->recipient->reachableAt,
+                    address: $address,
                     name: $this->recipient->name,
                 );
 

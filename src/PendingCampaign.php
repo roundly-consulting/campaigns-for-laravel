@@ -34,7 +34,7 @@ final class PendingCampaign
     /** @var list<CampaignRecipient> */
     private array $recipients = [];
 
-    /** @var array<string, true> addresses already added, normalised (trimmed, lower-cased) */
+    /** @var array<string, true> addresses (trimmed, lower-cased) and models already added */
     private array $addresses = [];
 
     /**
@@ -105,6 +105,8 @@ final class PendingCampaign
      * owner model, or an iterable of any of these. Calls are additive; owners
      * or contacts with no matching (or no verified) contact are skipped, and an
      * address already added (compared case-insensitively) is not added again.
+     * A model recipient (CampaignRecipient::forModel()) is de-duplicated by its
+     * model instead of its address.
      *
      * @param  string|CampaignRecipient|Model|iterable<mixed>  $recipients
      */
@@ -164,14 +166,16 @@ final class PendingCampaign
         }
 
         // One delivery per address, however it arrived (a string, a recipient, an owner, a
-        // contact): the first one added wins.
-        $address = mb_strtolower(trim($resolved->reachableAt));
+        // contact), and one per model for a model recipient: the first one added wins.
+        $key = $resolved->hasModel()
+            ? "model:{$resolved->recipientType}:{$resolved->recipientId}"
+            : 'address:'.mb_strtolower(trim((string) $resolved->reachableAt));
 
-        if (isset($this->addresses[$address])) {
+        if (isset($this->addresses[$key])) {
             return;
         }
 
-        $this->addresses[$address] = true;
+        $this->addresses[$key] = true;
         $this->recipients[] = $resolved;
     }
 

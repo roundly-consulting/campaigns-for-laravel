@@ -36,6 +36,9 @@ it('serialises to an array', function (): void {
         'errorOccured' => true,
         'errorMessage' => 'boom',
         'campaignUuid' => '00000000-0000-4000-8000-c00000000001',
+        'recipientType' => null,
+        'recipientId' => null,
+        'meta' => null,
     ]);
 });
 

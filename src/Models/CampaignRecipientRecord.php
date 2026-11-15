@@ -8,6 +8,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use RoundlyConsulting\Campaigns\Database\Factories\CampaignRecipientRecordFactory;
 
@@ -16,7 +17,10 @@ use RoundlyConsulting\Campaigns\Database\Factories\CampaignRecipientRecordFactor
  * @property string $uuid
  * @property string $campaign_uuid
  * @property string $name
- * @property string $reachable_at
+ * @property string|null $reachable_at
+ * @property string|null $recipient_type
+ * @property int|string|null $recipient_id
+ * @property array<string, mixed>|null $meta
  * @property bool $has_been_processed
  * @property bool $error_occured
  * @property string|null $error_message
@@ -43,6 +47,16 @@ final class CampaignRecipientRecord extends Model
         return $this->belongsTo(CampaignRecord::class, 'campaign_uuid', 'uuid');
     }
 
+    /**
+     * The host model this recipient stands for; null for an address-only recipient.
+     *
+     * @return MorphTo<Model, $this>
+     */
+    public function recipient(): MorphTo
+    {
+        return $this->morphTo('recipient', 'recipient_type', 'recipient_id');
+    }
+
     protected static function newFactory(): CampaignRecipientRecordFactory
     {
         return CampaignRecipientRecordFactory::new();
@@ -56,6 +70,7 @@ final class CampaignRecipientRecord extends Model
         return [
             'has_been_processed' => 'boolean',
             'error_occured' => 'boolean',
+            'meta' => 'array',
         ];
     }
 }

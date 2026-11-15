@@ -16,7 +16,7 @@ $migrations = __DIR__.'/../../database/migrations';
 /**
  * P — the publish-only guards. The fleet publishes migrations timestamped rather than
  * auto-loading them; doing both runs both copies and dies on a duplicate table (bug #5, on
- * three packages). `2` pins the file count so neither check can pass over an empty or
+ * three packages). `3` pins the file count so neither check can pass over an empty or
  * relocated directory.
  */
 it('never auto-loads its migrations — the host publishes them', function (): void {
@@ -24,7 +24,17 @@ it('never auto-loads its migrations — the host publishes them', function (): v
 });
 
 it('publishes its migrations timestamp-injected into the host', function (): void {
-    expect(CampaignsServiceProvider::class)->toPublishMigrationsTimestamped('campaigns-migrations', 2);
+    expect(CampaignsServiceProvider::class)->toPublishMigrationsTimestamped('campaigns-migrations', 3);
+});
+
+/**
+ * M — the ALTER half of `assertRunnable()`. Since 2.1 the set ships one `Schema::table()`
+ * ALTER (the model-recipient columns on `campaign_recipients`), and an ALTER that sorts before
+ * the CREATE of its table is approvals #2. No FK edges: `campaign_recipients` points at
+ * `campaigns` by convention only.
+ */
+it('sorts every ALTER after the CREATE of its table', function () use ($migrations): void {
+    expect($migrations)->toHaveRunnableMigrationOrder(foreignKeys: 0);
 });
 
 /**
@@ -36,17 +46,11 @@ it('publishes its migrations timestamp-injected into the host', function (): voi
  * the assertion would fail by design. That is the check working correctly against a shape it
  * does not fit.
  *
- * M is skipped for a re-verified reason rather than the spec's say-so: neither migration
- * declares a `constrained()`/`references()` edge, AND neither is a `Schema::table()` ALTER.
- * Both halves of `assertRunnable()` matter — the FK half and the ALTER-sorts-after-CREATE
- * half (approvals #2) — and campaigns has nothing for either. `campaign_recipients` points
- * at `campaigns` by convention only, with no FK declared.
- *
- * `migrations: 2` pins the file count, and the runner independently fails a set that
+ * `migrations: 3` pins the file count, and the runner independently fails a set that
  * "applies cleanly" while creating no tables — an empty `up()` otherwise proves nothing.
  */
 it('applies its migrations on postgres', function () use ($migrations): void {
-    expect($migrations)->toApplyOnConnection('pgsql', migrations: 2);
+    expect($migrations)->toApplyOnConnection('pgsql', migrations: 3);
 })->skip(fn (): bool => ! test()->connectionAvailable('pgsql'), 'no postgres connection available');
 
 /**

@@ -37,6 +37,11 @@ return [
         // (one of the RoundlyConsulting\Contacts\Enums\ContactType values; any
         // other value throws).
         'contact-type' => env('CAMPAIGNS_RECIPIENT_CONTACT_TYPE', 'email'),
+
+        // Key type of the host models a recipient can stand for
+        // (CampaignRecipient::forModel()): "bigint", "uuid" or "ulid". It shapes
+        // the `recipient_id` column, so set it before running the migrations.
+        'key-type' => env('CAMPAIGNS_RECIPIENT_KEY_TYPE', 'bigint'),
     ],
 
     /*

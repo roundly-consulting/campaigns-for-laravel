@@ -35,7 +35,7 @@ final class ThrowingRecipientJob implements ProcessesCampaignRecipient, ShouldQu
             return;
         }
 
-        if (str_starts_with($this->recipient->reachableAt, 'throw')) {
+        if (str_starts_with((string) $this->recipient->reachableAt, 'throw')) {
             throw new RuntimeException('transport down');
         }
 

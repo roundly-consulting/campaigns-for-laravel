@@ -38,6 +38,8 @@ it('ships exactly the config keys it reads', function (): void {
             'campaigns.sending-queue',
             'campaigns.from-name',
             'campaigns.from-address',
+            // Read through the toolkit's `KeyType::fromConfig($key)` (store + migration).
+            'campaigns.recipients.key-type',
         ],
 
         // Deliberately NO `excludeFromReverse` for the provider. The testing README's own
