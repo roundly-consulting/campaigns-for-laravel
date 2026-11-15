@@ -6,6 +6,41 @@ All notable changes to `campaigns-for-laravel` are documented in this file. The 
 
 ## Unreleased
 
+## 2.1.0 - 2026-11-15
+
+### Added
+
+- Model recipients: a recipient can stand for a host model (a `User`, a `Member`) instead of, or
+  as well as, an address. `CampaignRecipient::forModel($model, $name, ?$reachableAt, ?$meta)`, new
+  constructor arguments `recipientType` / `recipientId` (the morph type and key) and `meta`, plus
+  `hasModel()`, `isFor($model)` and `model()` to resolve it in a delivery job.
+- Optional `meta` on recipients: host data stored and handed back, never read by the package.
+- `CampaignRecipientRecord::recipient()` (`MorphTo`) and `meta` (array cast); the database store
+  persists and reads back the model and meta.
+- `campaigns.recipients.key-type` (`CAMPAIGNS_RECIPIENT_KEY_TYPE`, default `bigint`): the key type
+  of recipient models, which shapes the new `recipient_id` column (`bigint`, `uuid` or `ulid`).
+- `Campaigns::fake()`: `assertRecipientProcessed()` and `assertRecipientFailed()` accept a model
+  and match the recipient standing for it.
+- `CampaignRecipientRecordFactory::forModel($model, $withAddress = false)`.
+- `RecipientHasNoAddress`: `SendCampaignEmail` and `SendCampaignNotification` record a model
+  recipient without an address as failed with this reason.
+
+### Changed
+
+- `CampaignRecipient::$reachableAt` is `?string`: it may be null for a model recipient. It stays
+  required (`InvalidArgumentException`) for a recipient without a model. Code that reads it from
+  address-only campaigns behaves as before; static analysis may ask you to handle `null`.
+- `PendingCampaign::to()` de-duplicates a model recipient by its model instead of its address.
+
+### Upgrade
+
+- With `DatabaseCampaignStore`: set `CAMPAIGNS_RECIPIENT_KEY_TYPE` first if your recipient models
+  use uuid or ulid keys, then publish and run the new migration:
+  `php artisan vendor:publish --tag=campaigns-migrations` and `php artisan migrate`. It adds
+  nullable `recipient_type` / `recipient_id` (indexed together) and `meta` (json) to
+  `campaign_recipients` and makes `reachable_at` nullable. Existing rows are unchanged.
+- The in-memory store needs no changes. Jobs queued on 2.0 still run after the upgrade.
+
 ## 2.0.0 - 2026-11-07
 
 ### Changed
